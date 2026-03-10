@@ -21,21 +21,32 @@ local app_secret  = "725a39b3e1216ba9ea81129961a5af8bdf6434b390e05fb54fdb6b9ba41
 local app_version = "1.0"
 
 -- ============================================================
+-- UNIVERSAL HTTP REQUEST
+-- ============================================================
+local httpRequest = (syn and syn.request) or (http and http.request) or http_request or (fluxus and fluxus.request) or request
+
+-- ============================================================
 -- KEYAUTH
 -- ============================================================
 local function VerifyKeyAuth(user_key, status_label)
+    if not httpRequest then
+        warn("NaxiumHub: Your executor does not support HTTP requests.")
+        if status_label then status_label.Text="Executor not supported"; status_label.TextColor3=Color3.fromRGB(210,65,65); task.wait(2) end
+        return false
+    end
+
     local player_hwid = ""
     if gethwid then player_hwid = gethwid()
     else player_hwid = game:GetService("RbxAnalyticsService"):GetClientId() end
 
     if status_label then status_label.Text = "Initializing KeyAuth Session..." end
-    local init_req = request({ Url="https://keyauth.win/api/1.2/", Method="POST", Headers={["Content-Type"]="application/x-www-form-urlencoded"}, Body="type=init&name="..app_name.."&ownerid="..owner_id.."&version="..app_version })
+    local init_req = httpRequest({ Url="https://keyauth.win/api/1.2/", Method="POST", Headers={["Content-Type"]="application/x-www-form-urlencoded"}, Body="type=init&name="..app_name.."&ownerid="..owner_id.."&version="..app_version })
     local init_data = HttpService:JSONDecode(init_req.Body)
     if not init_data.success then warn("KeyAuth Init Failed: "..init_data.message); if status_label then status_label.Text="Init Failed: "..init_data.message; status_label.TextColor3=Color3.fromRGB(210,65,65); task.wait(2) end; return false end
     local session_id = init_data.sessionid
 
     if status_label then status_label.Text = "Fetching Live Stats..." end
-    local stats_req = request({ Url="https://keyauth.win/api/1.2/", Method="POST", Headers={["Content-Type"]="application/x-www-form-urlencoded"}, Body="type=fetchStats&sessionid="..session_id.."&name="..app_name.."&ownerid="..owner_id })
+    local stats_req = httpRequest({ Url="https://keyauth.win/api/1.2/", Method="POST", Headers={["Content-Type"]="application/x-www-form-urlencoded"}, Body="type=fetchStats&sessionid="..session_id.."&name="..app_name.."&ownerid="..owner_id })
     local stats_data = HttpService:JSONDecode(stats_req.Body)
     local liveStats = "1"
     if stats_data.success and stats_data.appinfo and stats_data.appinfo.numOnlineUsers then
@@ -45,7 +56,7 @@ local function VerifyKeyAuth(user_key, status_label)
     _G.NaxiumOnlineUsers = liveStats
 
     if status_label then status_label.Text = "Validating License Key..." end
-    local license_req = request({ Url="https://keyauth.win/api/1.2/", Method="POST", Headers={["Content-Type"]="application/x-www-form-urlencoded"}, Body="type=license&key="..user_key.."&hwid="..player_hwid.."&sessionid="..session_id.."&name="..app_name.."&ownerid="..owner_id })
+    local license_req = httpRequest({ Url="https://keyauth.win/api/1.2/", Method="POST", Headers={["Content-Type"]="application/x-www-form-urlencoded"}, Body="type=license&key="..user_key.."&hwid="..player_hwid.."&sessionid="..session_id.."&name="..app_name.."&ownerid="..owner_id })
     local license_data = HttpService:JSONDecode(license_req.Body)
     if license_data.success then
         print("KeyAuth: Authentication Successful!")
@@ -86,6 +97,46 @@ local function LoadNaxiumHub()
     State.saveData = _G.NaxiumSave or {}
 
     local UI = {}
+
+    -- ── MENU CONTROLLER (hoisted so all sections can reference) ──
+    local mfIsOpen  = false
+    local miniIsOpen= false
+    local openMainMenu, closeMainMenu, toggleMainMenu
+    local openMiniUI,   closeMiniUI
+
+    openMainMenu = function()
+        if mfIsOpen then return end; mfIsOpen=true
+        if not UI.mf then return end
+        UI.mf.Visible=true
+        UI.mf.Size=UDim2.new(0,800,0,0)
+        UI.mf.BackgroundTransparency=1
+        S.Tween:Create(UI.mf,TweenInfo.new(0.38,Enum.EasingStyle.Back,Enum.EasingDirection.Out),
+            {Size=UDim2.new(0,800,0,440),BackgroundTransparency=0.06}):Play()
+    end
+    closeMainMenu = function()
+        if not mfIsOpen then return end; mfIsOpen=false
+        if not UI.mf then return end
+        S.Tween:Create(UI.mf,TweenInfo.new(0.28,Enum.EasingStyle.Quad,Enum.EasingDirection.In),
+            {Size=UDim2.new(0,800,0,0),BackgroundTransparency=1}):Play()
+        task.delay(0.3,function() if UI.mf then UI.mf.Visible=false end end)
+    end
+    toggleMainMenu = function()
+        if mfIsOpen then closeMainMenu() else openMainMenu() end
+    end
+    openMiniUI = function()
+        if miniIsOpen then return end; miniIsOpen=true
+        if not miniUI then return end
+        miniUI.Visible=true; miniUI.Size=UDim2.new(0,0,0,0); miniUI.BackgroundTransparency=1
+        S.Tween:Create(miniUI,TweenInfo.new(0.32,Enum.EasingStyle.Back,Enum.EasingDirection.Out),
+            {Size=UDim2.new(0,240,0,310),BackgroundTransparency=0.06}):Play()
+    end
+    closeMiniUI = function()
+        if not miniIsOpen then return end; miniIsOpen=false
+        if not miniUI then return end
+        S.Tween:Create(miniUI,TweenInfo.new(0.22,Enum.EasingStyle.Quad,Enum.EasingDirection.In),
+            {Size=UDim2.new(0,240,0,0),BackgroundTransparency=1}):Play()
+        task.delay(0.25,function() if miniUI then miniUI.Visible=false end end)
+    end
     local function sv(k,v) pcall(function() State.saveData[k]=v end) end
     local function ld(k,def) local ok2,v=pcall(function() return State.saveData[k] end); return (ok2 and v~=nil) and v or def end
 
@@ -385,7 +436,9 @@ local function LoadNaxiumHub()
     S.UIS.InputEnded:Connect(function(i)
         if State.hDrg and (i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch) then
             State.hDrg=false
-            if not State.hMoved and (tick()-State.hClickTime)<0.25 then UI.mf.Visible=not UI.mf.Visible end
+            if not State.hMoved and (tick()-State.hClickTime)<0.25 then
+                toggleMainMenu()
+            end
         end
     end)
 
@@ -413,7 +466,7 @@ local function LoadNaxiumHub()
     UI.mf=Instance.new("Frame"); UI.mf.Name="Main"; UI.mf.Size=UDim2.new(0,800,0,440); UI.mf.Position=UDim2.new(0.5,0,0.5,0); UI.mf.AnchorPoint=Vector2.new(0.5,0.5); UI.mf.BackgroundColor3=C.Bg; UI.mf.BackgroundTransparency=0.06; UI.mf.BorderSizePixel=0; UI.mf.Visible=false; UI.mf.ClipsDescendants=true; UI.mf.Parent=UI.gui; track(UI.mf,"BackgroundColor3","Bg"); Instance.new("UICorner",UI.mf).CornerRadius=UDim.new(0,10)
 
     local DEF_BG="rbxassetid://75254466518091"
-    UI.bgImg=Instance.new("ImageLabel"); UI.bgImg.BackgroundTransparency=1; UI.bgImg.Image=ld("bg_img",DEF_BG); UI.bgImg.ImageTransparency=0.85; UI.bgImg.ZIndex=0; UI.bgImg.Parent=UI.mf
+    UI.bgImg=Instance.new("ImageLabel"); UI.bgImg.BackgroundTransparency=1; UI.bgImg.Image=ld("bg_img",DEF_BG); UI.bgImg.ImageTransparency=1-ld("bg_op",0.88); UI.bgImg.ZIndex=0; UI.bgImg.Parent=UI.mf
     local function updateBgScaling(imgStr)
         if imgStr=="" or string.find(imgStr,"75254466518091") then
             UI.bgImg.Size=UDim2.new(0.6,0,0.6,0); UI.bgImg.Position=UDim2.new(0.5,0,0.5,0); UI.bgImg.AnchorPoint=Vector2.new(0.5,0.5); UI.bgImg.ScaleType=Enum.ScaleType.Fit
@@ -425,6 +478,50 @@ local function LoadNaxiumHub()
     table.insert(State.ConfigElements,{key="bg_img",default=DEF_BG,update=function(v) if v then UI.bgImg.Image=v; updateBgScaling(v) end end})
 
     UI.bStr=Instance.new("UIStroke"); UI.bStr.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; UI.bStr.Thickness=1.5; UI.bStr.Transparency=0.5; UI.bStr.Parent=UI.mf; track(UI.bStr,"Color","Accent")
+
+    -- ── LIVING CREATURE OUTLINE ─────────────────────────────────
+    -- Four organic "claw" marks in corners that pulse and drift
+    -- giving the UI a sense of being alive, like it's breathing
+    local function mkCornerClaw(parent, anchorX, anchorY, rx, ry)
+        local g=Instance.new("Frame"); g.Size=UDim2.new(0,28,0,28)
+        g.AnchorPoint=Vector2.new(anchorX,anchorY)
+        g.Position=UDim2.new(anchorX,rx,anchorY,ry)
+        g.BackgroundTransparency=1; g.BorderSizePixel=0; g.ZIndex=15; g.Parent=parent
+        -- Two curved stroke bars per corner
+        for j=1,2 do
+            local bar=Instance.new("Frame")
+            bar.BorderSizePixel=0; bar.ZIndex=15
+            bar.BackgroundColor3=C.Accent; bar.Parent=g
+            track(bar,"BackgroundColor3","Accent")
+            if j==1 then
+                bar.Size=UDim2.new(0,18,0,2); bar.Position=UDim2.new(anchorX,anchorX==0 and 0 or -18,0,anchorY==0 and 0 or 26)
+            else
+                bar.Size=UDim2.new(0,2,0,18); bar.Position=UDim2.new(anchorX,anchorX==0 and 0 or 26,0,anchorY==0 and 0 or -18)
+            end
+            Instance.new("UICorner",bar).CornerRadius=UDim.new(1,0)
+        end
+        return g
+    end
+    local claws={
+        mkCornerClaw(UI.mf,0,0,  -1,-1),
+        mkCornerClaw(UI.mf,1,0,   1,-1),
+        mkCornerClaw(UI.mf,0,1,  -1, 1),
+        mkCornerClaw(UI.mf,1,1,   1, 1),
+    }
+    -- Breathe animation: claws scale in/out in sequence like a heartbeat
+    local clawPhase=0
+    S.RS.Heartbeat:Connect(function(dt)
+        clawPhase=clawPhase+dt*0.9
+        for i,claw in ipairs(claws) do
+            local offset=math.sin(clawPhase+(i-1)*math.pi*0.5)*0.65
+            claw.BackgroundTransparency=0 -- container
+            for _,bar in ipairs(claw:GetChildren()) do
+                if bar:IsA("Frame") then
+                    bar.BackgroundTransparency=math.clamp(0.35-offset*0.3,0.05,0.75)
+                end
+            end
+        end
+    end)
 
     -- Top bar + drag
     UI.topBar=Instance.new("Frame"); UI.topBar.Size=UDim2.new(1,0,0,30); UI.topBar.BackgroundTransparency=1; UI.topBar.Active=true; UI.topBar.ZIndex=10; UI.topBar.Parent=UI.mf
@@ -510,8 +607,8 @@ local function LoadNaxiumHub()
         L("Nax  /  @Pweck_.",cc,UDim2.new(1,-20,0,14),UDim2.new(0,9,0,25),"White",Enum.TextXAlignment.Left,Enum.Font.GothamBold,11); L("Lead Dev & UI",cc,UDim2.new(1,-20,0,14),UDim2.new(0,9,0,40),"Gray",Enum.TextXAlignment.Left,Enum.Font.GothamMedium,10)
         L("Exodius  /  @ex0dius.",cc,UDim2.new(1,-20,0,14),UDim2.new(0,9,0,60),"White",Enum.TextXAlignment.Left,Enum.Font.GothamBold,11); L("Creative Director",cc,UDim2.new(1,-20,0,14),UDim2.new(0,9,0,75),"Gray",Enum.TextXAlignment.Left,Enum.Font.GothamMedium,10)
 
-        local ch=mkCard(UI.HT,UDim2.new(0,W_L3,0,95),UDim2.new(0,0,0,195)); mkHdr(ch,"CHANGELOG v1.6.0",6)
-        for i,e in ipairs({{C.Green,"+","ESP preview with layered glow auras"},{C.Green,"+","HUD pill, tooltip, sounds"},{C.Green,"+","Profile outline on player select"}}) do
+        local ch=mkCard(UI.HT,UDim2.new(0,W_L3,0,95),UDim2.new(0,0,0,195)); mkHdr(ch,"CHANGELOG v1.7.0",6)
+        for i,e in ipairs({{C.Green,"+","Animated open/close (main + mini)"},{C.Green,"+","Living corner outline breathing"},{C.Green,"+","Config export modal + import fix"}}) do
             local row=Instance.new("Frame"); row.Size=UDim2.new(1,-12,0,14); row.Position=UDim2.new(0,6,0,25+(i-1)*20); row.BackgroundTransparency=1; row.Parent=ch
             local tg=L(e[2],row,UDim2.new(0,10,1,0),UDim2.new(0,0,0,0),"Gray",Enum.TextXAlignment.Left,Enum.Font.GothamBold,11); tg.TextColor3=e[1]; L(e[3],row,UDim2.new(1,-12,1,0),UDim2.new(0,14,0,0),"Gray",Enum.TextXAlignment.Left,Enum.Font.Gotham,10).TextWrapped=true
         end
@@ -604,11 +701,13 @@ local function LoadNaxiumHub()
     -- SAFE TAB
     -- ============================================================
     do
-        local camCard=mkCard(UI.SAT,UDim2.new(0,W_HALF,0,105),UDim2.new(0,0,0,0)); mkHdr(camCard,"CAMERA",6)
+        local camCard=mkCard(UI.SAT,UDim2.new(0,W_HALF,0,90),UDim2.new(0,0,0,0)); mkHdr(camCard,"CAMERA",6)
         L("Unlock zoom distance. Uses RenderStepped to fight CoS camera reset.",camCard,UDim2.new(1,-20,0,26),UDim2.new(0,10,0,25),"Gray",Enum.TextXAlignment.Left,Enum.Font.Gotham,10)
         local camZoomEnabled=false; local camMaxDist=800
-        mkTog(camCard,"Unlock Camera Distance",58,"cam_en",false,function(v) camZoomEnabled=v; if not v then pcall(function() player.CameraMaxZoomDistance=400; player.CameraMinZoomDistance=0.5 end) end end,"Cam")
-        mkSlider(camCard,"Max Zoom Distance",86,"cam_dist",400,5000,800,"%.0f",function(v) camMaxDist=v end)
+        mkTog(camCard,"Unlock Camera Distance",56,"cam_en",false,function(v) camZoomEnabled=v; if not v then pcall(function() player.CameraMaxZoomDistance=400; player.CameraMinZoomDistance=0.5 end) end end,"Cam")
+        -- Slider sits outside the card, directly below it
+        local camSliderBg=Instance.new("Frame"); camSliderBg.Size=UDim2.new(0,W_HALF,0,36); camSliderBg.Position=UDim2.new(0,0,0,98); camSliderBg.BackgroundTransparency=1; camSliderBg.Parent=UI.SAT
+        mkSlider(camSliderBg,"Max Zoom Distance",0,"cam_dist",400,5000,800,"%.0f",function(v) camMaxDist=v end)
         S.RS.RenderStepped:Connect(function() if camZoomEnabled then pcall(function() player.CameraMaxZoomDistance=camMaxDist; player.CameraMinZoomDistance=0.5 end) end end)
 
         local proxCard=mkCard(UI.SAT,UDim2.new(0,W_HALF,0,105),UDim2.new(0,W_HALF+10,0,0)); mkHdr(proxCard,"PROXIMITY ALERTS",6)
@@ -797,7 +896,7 @@ local function LoadNaxiumHub()
                 tr2.MouseButton1Click:Connect(function() UI.bgImg.Image="rbxassetid://"..t.id; updateBgScaling(UI.bgImg.Image); sv("bg_img",UI.bgImg.Image); openBgBtn.Text=t.name.."  v"; closeBgPopup() end)
             end
         end)
-        mkSlider(THT_L,"Image Opacity",62,"bg_op",0,1,0.3,"%.2f",function(v) UI.bgImg.ImageTransparency=1-v end)
+        mkSlider(THT_L,"Image Opacity",62,"bg_op",0,1,0.88,"%.2f",function(v) UI.bgImg.ImageTransparency=1-v end)
         -- Custom ID input (narrower to leave room for Save + ?)
         local customImgBox=Instance.new("TextBox"); customImgBox.Size=UDim2.new(1,-76,0,26); customImgBox.Position=UDim2.new(0,10,0,108); customImgBox.BackgroundColor3=Color3.fromRGB(12,16,24); customImgBox.BackgroundTransparency=0.2; customImgBox.BorderSizePixel=0; customImgBox.PlaceholderText="Paste Image ID here..."; customImgBox.Text=""; customImgBox.Font=Enum.Font.GothamMedium; customImgBox.TextSize=10; customImgBox.TextColor3=C.White; customImgBox.PlaceholderColor3=C.Gray; customImgBox.ClearTextOnFocus=false; customImgBox.Parent=THT_L; Instance.new("UICorner",customImgBox).CornerRadius=UDim.new(0,5)
         local cpad2=Instance.new("UIPadding"); cpad2.PaddingLeft=UDim.new(0,8); cpad2.Parent=customImgBox; local cboxStr=Instance.new("UIStroke"); cboxStr.Thickness=1; cboxStr.Transparency=0.7; cboxStr.Parent=customImgBox; track(cboxStr,"Color","Accent")
@@ -937,27 +1036,52 @@ local function LoadNaxiumHub()
             return btn, L("",btn,UDim2.new(0,0,1,0),UDim2.new(0,0,0,0),"Gray",Enum.TextXAlignment.Left,Enum.Font.Gotham,0) -- invisible status label
         end
 
-        local cfgShareBtn,_ = makeActionBtn(cfgCreateCard,136,"Export to Clipboard","Copies all current settings as a shareable string",C.Accent)
+        -- Share modal helper - opens a popup with the config string in a selectable box
+        local function openShareModal(json)
+            local modal=Instance.new("Frame"); modal.Size=UDim2.new(1,0,1,0); modal.BackgroundColor3=Color3.new(0,0,0); modal.BackgroundTransparency=0.45; modal.ZIndex=500; modal.Parent=UI.mf
+            local box=Instance.new("Frame"); box.Size=UDim2.new(0,460,0,200); box.Position=UDim2.new(0.5,0,0.5,0); box.AnchorPoint=Vector2.new(0.5,0.5); box.BackgroundColor3=C.DkBg; box.BorderSizePixel=0; box.ZIndex=501; box.Parent=modal; track(box,"BackgroundColor3","DkBg"); Instance.new("UICorner",box).CornerRadius=UDim.new(0,10)
+            local bStr=Instance.new("UIStroke"); bStr.Thickness=1.5; bStr.Transparency=0.35; bStr.ZIndex=501; bStr.Parent=box; track(bStr,"Color","Accent")
+            L("Export Config",box,UDim2.new(1,-40,0,20),UDim2.new(0,16,0,12),"White",Enum.TextXAlignment.Left,Enum.Font.GothamBold,14)
+            L("Copy the string below and share it — paste it into Naxium's Import field to apply.",box,UDim2.new(1,-32,0,26),UDim2.new(0,16,0,34),"Gray",Enum.TextXAlignment.Left,Enum.Font.GothamMedium,10).TextWrapped=true
+            -- Scrollable text display (not editable, but selectable via a read-only TextBox)
+            local scrollF=Instance.new("Frame"); scrollF.Size=UDim2.new(1,-32,0,76); scrollF.Position=UDim2.new(0,16,0,70); scrollF.BackgroundColor3=Color3.fromRGB(7,10,16); scrollF.BackgroundTransparency=0.1; scrollF.BorderSizePixel=0; scrollF.ZIndex=502; scrollF.Parent=box; Instance.new("UICorner",scrollF).CornerRadius=UDim.new(0,6)
+            local sStr=Instance.new("UIStroke"); sStr.Thickness=1; sStr.Transparency=0.72; sStr.ZIndex=502; sStr.Parent=scrollF; track(sStr,"Color","Accent")
+            local tb=Instance.new("TextBox"); tb.Size=UDim2.new(1,-12,1,-8); tb.Position=UDim2.new(0,6,0,4); tb.BackgroundTransparency=1; tb.Text=json; tb.Font=Enum.Font.RobotoMono; tb.TextSize=9; tb.TextColor3=C.Accent; tb.TextXAlignment=Enum.TextXAlignment.Left; tb.TextYAlignment=Enum.TextYAlignment.Top; tb.TextWrapped=true; tb.MultiLine=true; tb.ClearTextOnFocus=false; tb.ZIndex=503; tb.Parent=scrollF; track(tb,"TextColor3","Accent")
+            -- Copy button
+            local copyBtn=Instance.new("TextButton"); copyBtn.Size=UDim2.new(0.5,-10,0,30); copyBtn.Position=UDim2.new(0,16,0,158); copyBtn.BackgroundColor3=C.Accent; copyBtn.BackgroundTransparency=0.1; copyBtn.BorderSizePixel=0; copyBtn.Text="Copy to Clipboard"; copyBtn.Font=Enum.Font.GothamBold; copyBtn.TextSize=11; copyBtn.TextColor3=Color3.new(1,1,1); copyBtn.ZIndex=502; copyBtn.Parent=box; Instance.new("UICorner",copyBtn).CornerRadius=UDim.new(0,6); track(copyBtn,"BackgroundColor3","Accent")
+            copyBtn.MouseButton1Click:Connect(function() pcall(function() setclipboard(json) end); copyBtn.Text="Copied!"; copyBtn.BackgroundColor3=C.Green; task.delay(1.5,function() copyBtn.Text="Copy to Clipboard"; track(copyBtn,"BackgroundColor3","Accent") end) end)
+            -- Close button
+            local closeBtn=Instance.new("TextButton"); closeBtn.Size=UDim2.new(0.5,-10,0,30); closeBtn.Position=UDim2.new(0.5,4,0,158); closeBtn.BackgroundColor3=Color3.fromRGB(18,24,34); closeBtn.BackgroundTransparency=0.2; closeBtn.BorderSizePixel=0; closeBtn.Text="Close"; closeBtn.Font=Enum.Font.GothamBold; closeBtn.TextSize=11; closeBtn.TextColor3=C.Gray; closeBtn.ZIndex=502; closeBtn.Parent=box; Instance.new("UICorner",closeBtn).CornerRadius=UDim.new(0,6)
+            closeBtn.MouseButton1Click:Connect(function() modal:Destroy() end)
+            
+            -- FIX: Changed expression to standard assignment
+            modal.Active = true -- absorb clicks
+        end
+
+        local cfgShareBtn,_ = makeActionBtn(cfgCreateCard,136,"Export Config","Opens a shareable string you can post in Discord",C.Accent)
         cfgShareBtn.MouseButton1Click:Connect(function()
-            local json=encodeData(State.saveData); pcall(function() setclipboard(json) end)
-            local lbl=cfgShareBtn:FindFirstChildOfClass("TextLabel"); if lbl then lbl.Text="Share Config" end
-            -- Flash confirmation by changing the top label temporarily
-            local tl=cfgShareBtn:GetChildren()[2]; if tl and tl:IsA("TextLabel") then local orig=tl.Text; tl.Text="Copied to clipboard!"; tl.TextColor3=C.Green; task.delay(2,function() tl.Text=orig; tl.TextColor3=C.Gray end) end
+            local json=encodeData(State.saveData)
+            openShareModal(json)
         end)
 
         local cfgReceiveBtn,_ = makeActionBtn(cfgCreateCard,178,"Import from Clipboard","Paste a config string to apply its settings",C.Green,C.Green)
         cfgReceiveBtn.MouseButton1Click:Connect(function()
-            local clip=""; pcall(function() clip=getclipboard() end)
-            if clip=="" then
-                local sub=cfgReceiveBtn:GetChildren()[2]; if sub and sub:IsA("TextLabel") then sub.Text="Clipboard is empty!"; sub.TextColor3=C.Red; task.delay(2,function() sub.Text="Paste a config string from clipboard to load someone else's settings"; sub.TextColor3=C.Gray end) end; return
+            local clip=""
+            pcall(function() clip=getclipboard() end)
+            -- Find the subtitle label (second TextLabel child)
+            local subLbl=nil
+            local lbls={}; for _,c in ipairs(cfgReceiveBtn:GetChildren()) do if c:IsA("TextLabel") then table.insert(lbls,c) end end
+            if #lbls>=2 then subLbl=lbls[2] end
+            local function setStatus(msg,col,dur)
+                if subLbl then subLbl.Text=msg; subLbl.TextColor3=col end
+                task.delay(dur or 2.5,function() if subLbl then subLbl.Text="Paste a config string to apply its settings"; subLbl.TextColor3=C.Gray end end)
             end
+            if clip=="" then setStatus("Clipboard is empty.",C.Red); return end
             local data=decodeData(clip)
-            if not next(data) then
-                local sub=cfgReceiveBtn:GetChildren()[2]; if sub and sub:IsA("TextLabel") then sub.Text="That isn't a valid config string."; sub.TextColor3=C.Red; task.delay(2,function() sub.Text="Paste a config string from clipboard to load someone else's settings"; sub.TextColor3=C.Gray end) end; return
-            end
+            if not next(data) then setStatus("Not a valid Naxium config string.",C.Red); return end
             for k,v in pairs(data) do State.saveData[k]=v end
             for _,el in ipairs(State.ConfigElements) do pcall(function() el.update(State.saveData[el.key]) end) end
-            local sub=cfgReceiveBtn:GetChildren()[2]; if sub and sub:IsA("TextLabel") then sub.Text="Settings loaded successfully!"; sub.TextColor3=C.Green; task.delay(2.5,function() sub.Text="Paste a config string from clipboard to load someone else's settings"; sub.TextColor3=C.Gray end) end
+            setStatus("Imported successfully!",C.Green,3)
         end)
 
         local cfgResetBtn,_ = makeActionBtn(cfgCreateCard,220,"Reset All to Default","Clears every toggle and slider back to its original value",C.Red,C.Red)
@@ -1136,11 +1260,15 @@ local function LoadNaxiumHub()
         local rejBtn=Instance.new("TextButton"); rejBtn.Size=UDim2.new(0.5,-15,0,20); rejBtn.Position=UDim2.new(0.5,5,0,24); rejBtn.BackgroundColor3=C.Tab; rejBtn.BorderSizePixel=0; rejBtn.Text="Rejoin Server"; rejBtn.Font=Enum.Font.GothamBold; rejBtn.TextSize=10; rejBtn.TextColor3=C.White; rejBtn.Parent=srvCard; Instance.new("UICorner",rejBtn).CornerRadius=UDim.new(0,4); track(rejBtn,"BackgroundColor3","Tab")
         rejBtn.MouseButton1Click:Connect(function() rejBtn.Text="Rejoining..."; game:GetService("TeleportService"):TeleportToPlaceInstance(game.PlaceId,game.JobId,player) end)
 
+        -- ── Keybind handler ─────────────────────────────────────
         S.UIS.InputBegan:Connect(function(i,gp)
             if not gp and i.UserInputType==Enum.UserInputType.Keyboard then
                 if listening then hideKey=i.KeyCode.Name; sv("hideMenuKey",hideKey); keyLbl2.Text="Key: "..tostring(hideKey); skBtn.Text="Set Key"; listening=false
                 elseif mListening then miniKey=i.KeyCode.Name; sv("miniMenuKey",miniKey); miniKeyLbl.Text="Key: "..tostring(miniKey); mskBtn.Text="Set Key"; mListening=false
-                else if i.KeyCode.Name==hideKey then UI.mf.Visible=not UI.mf.Visible elseif miniUI and i.KeyCode.Name==miniKey then miniUI.Visible=not miniUI.Visible end end
+                else
+                    if i.KeyCode.Name==hideKey then toggleMainMenu()
+                    elseif i.KeyCode.Name==miniKey then if miniIsOpen then closeMiniUI() else openMiniUI() end end
+                end
             end
         end)
         S.Players.PlayerAdded:Connect(function(p) task.wait(2); checkStaffLogic(p) end)
@@ -1153,9 +1281,35 @@ local function LoadNaxiumHub()
     do
         local bb2=Instance.new("Frame"); bb2.Size=UDim2.new(1,-20,0,32); bb2.Position=UDim2.new(0,10,0,398); bb2.BackgroundColor3=C.DkBg; bb2.BackgroundTransparency=0.12; bb2.BorderSizePixel=0; bb2.Parent=UI.mf; track(bb2,"BackgroundColor3","DkBg"); Instance.new("UICorner",bb2).CornerRadius=UDim.new(0,7)
         L("Game Status  |  CoS v2.5.1  [OK]",bb2,UDim2.new(0.33,0,1,0),UDim2.new(0,10,0,0),"Gray",Enum.TextXAlignment.Left,Enum.Font.GothamMedium,10)
-        local expiryText="<font color=\"#41bb6a\">Active</font>"
-        if _G.NaxiumExpiry then local tl=_G.NaxiumExpiry-os.time(); if tl>315360000 then expiryText="<font color=\"#41bb6a\">Lifetime</font>" elseif tl>0 then local d=math.floor(tl/86400); local h=math.floor((tl%86400)/3600); if d>0 then expiryText="<font color=\"#41bb6a\">"..d.." Days Left</font>" else expiryText="<font color=\"#41bb6a\">"..h.." Hours Left</font>" end else expiryText="<font color=\"#d24141\">Expired</font>" end end
-        local accLbl2=L("",bb2,UDim2.new(0.33,0,1,0),UDim2.new(0.33,0,0,0),"White",Enum.TextXAlignment.Center,Enum.Font.GothamMedium,10); accLbl2.RichText=true; accLbl2.Text="Account  |  <font color=\"#41bb6a\">Subscribed</font>  |  "..expiryText
+
+        -- Build rich account + expiry label
+        local function buildAccText()
+            local subColor="#41bb6a" -- green
+            local dot="●"
+            local expStr=""
+            if _G.NaxiumExpiry then
+                local tl=_G.NaxiumExpiry-os.time()
+                if tl>315360000 then
+                    expStr=' <font color="#9b7fe8">∞ Lifetime</font>'
+                elseif tl>0 then
+                    local d=math.floor(tl/86400)
+                    if d>30 then expStr=' <font color="#41bb6a">· '..d..'d left</font>'
+                    elseif d>7 then expStr=' <font color="#fcc03e">· '..d..'d left</font>'
+                    elseif d>0 then expStr=' <font color="#d24141">· '..d..'d left</font>'
+                    else
+                        local h=math.floor((tl%86400)/3600)
+                        expStr=' <font color="#d24141">· '..h..'h left</font>'
+                    end
+                else
+                    subColor="#d24141"; dot="●"; expStr=' <font color="#d24141">Expired</font>'
+                end
+            end
+            return '<font color="#'..subColor..'">'..dot..'</font> <font color="#c8d0dc">Naxium</font> <font color="'..subColor..'">Active</font>'..expStr
+        end
+
+        local accLbl2=Instance.new("TextLabel"); accLbl2.Size=UDim2.new(0.34,0,1,0); accLbl2.Position=UDim2.new(0.33,0,0,0); accLbl2.BackgroundTransparency=1; accLbl2.RichText=true; accLbl2.Font=Enum.Font.GothamBold; accLbl2.TextSize=10; accLbl2.TextXAlignment=Enum.TextXAlignment.Center; accLbl2.Parent=bb2
+        accLbl2.Text=buildAccText()
+
         local psF2=Instance.new("Frame"); psF2.Size=UDim2.new(0.33,0,1,0); psF2.Position=UDim2.new(0.66,0,0,0); psF2.BackgroundTransparency=1; psF2.Parent=bb2
         local pLL=Instance.new("UIListLayout"); pLL.SortOrder=Enum.SortOrder.LayoutOrder; pLL.VerticalAlignment=Enum.VerticalAlignment.Center; pLL.Padding=UDim.new(0,2); pLL.Parent=psF2
         local function addBotRow(text,order) local fr=Instance.new("Frame"); fr.Size=UDim2.new(1,-10,0,12); fr.BackgroundTransparency=1; fr.LayoutOrder=order; fr.Parent=psF2; local ll=Instance.new("UIListLayout"); ll.FillDirection=Enum.FillDirection.Horizontal; ll.HorizontalAlignment=Enum.HorizontalAlignment.Right; ll.VerticalAlignment=Enum.VerticalAlignment.Center; ll.Padding=UDim.new(0,6); ll.Parent=fr; local lbl=Instance.new("TextLabel"); lbl.BackgroundTransparency=1; lbl.TextColor3=C.Gray; lbl.Font=Enum.Font.GothamMedium; lbl.TextSize=10; lbl.Text=text; lbl.Size=UDim2.new(0,0,1,0); lbl.AutomaticSize=Enum.AutomaticSize.X; lbl.LayoutOrder=2; lbl.Parent=fr; local dt=Instance.new("Frame"); dt.Size=UDim2.new(0,5,0,5); dt.BackgroundColor3=C.Green; dt.BorderSizePixel=0; dt.LayoutOrder=1; dt.Parent=fr; Instance.new("UICorner",dt).CornerRadius=UDim.new(1,0); return lbl end
@@ -1171,7 +1325,8 @@ local function LoadNaxiumHub()
         miniUI=Instance.new("Frame"); miniUI.Name="MiniUI"; miniUI.Size=UDim2.new(0,240,0,310); miniUI.Position=UDim2.new(0.8,0,0.5,0); miniUI.AnchorPoint=Vector2.new(0.5,0.5); miniUI.BackgroundColor3=C.Bg; miniUI.BackgroundTransparency=0.06; miniUI.BorderSizePixel=0; miniUI.Visible=false; miniUI.ClipsDescendants=true; miniUI.Parent=UI.gui; track(miniUI,"BackgroundColor3","Bg"); Instance.new("UICorner",miniUI).CornerRadius=UDim.new(0,8)
         local mStr=Instance.new("UIStroke"); mStr.Thickness=1.5; mStr.Transparency=0.5; mStr.Parent=miniUI; track(mStr,"Color","Accent")
         local mTop=Instance.new("Frame"); mTop.Size=UDim2.new(1,0,0,32); mTop.BackgroundTransparency=1; mTop.Active=true; mTop.ZIndex=10; mTop.Parent=miniUI; local mLogo=Instance.new("ImageLabel"); mLogo.Size=UDim2.new(0,14,0,14); mLogo.Position=UDim2.new(0,12,0.5,0); mLogo.AnchorPoint=Vector2.new(0,0.5); mLogo.BackgroundTransparency=1; mLogo.Image="rbxassetid://75254466518091"; mLogo.Parent=mTop; L("Naxium Mini",mTop,UDim2.new(1,-50,1,0),UDim2.new(0,30,0,0),"White",Enum.TextXAlignment.Left,Enum.Font.GothamBold,11)
-        local mClose=Instance.new("TextButton"); mClose.Size=UDim2.new(0,26,0,26); mClose.Position=UDim2.new(1,-6,0.5,0); mClose.AnchorPoint=Vector2.new(1,0.5); mClose.BackgroundTransparency=1; mClose.Text="X"; mClose.Font=Enum.Font.GothamBold; mClose.TextSize=13; mClose.TextColor3=C.Gray; mClose.Parent=mTop; mClose.MouseEnter:Connect(function() mClose.TextColor3=Color3.fromRGB(235,75,75) end); mClose.MouseLeave:Connect(function() mClose.TextColor3=C.Gray end); mClose.MouseButton1Click:Connect(function() miniUI.Visible=false end)
+        local mClose=Instance.new("TextButton"); mClose.Size=UDim2.new(0,26,0,26); mClose.Position=UDim2.new(1,-6,0.5,0); mClose.AnchorPoint=Vector2.new(1,0.5); mClose.BackgroundTransparency=1; mClose.Text="X"; mClose.Font=Enum.Font.GothamBold; mClose.TextSize=13; mClose.TextColor3=C.Gray; mClose.Parent=mTop; mClose.MouseEnter:Connect(function() mClose.TextColor3=Color3.fromRGB(235,75,75) end); mClose.MouseLeave:Connect(function() mClose.TextColor3=C.Gray end)
+        mClose.MouseButton1Click:Connect(function() closeMiniUI() end)
         mTop.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 then State.drg=true; State.drgSt=i.Position; State.drgPos=miniUI.Position; i.Changed:Connect(function() if i.UserInputState==Enum.UserInputState.End then State.drg=false end end) end end)
         mTop.InputChanged:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseMovement then State.drgInp=i end end)
         S.UIS.InputChanged:Connect(function(i) if i==State.drgInp and State.drg then local d=i.Position-State.drgSt; miniUI.Position=UDim2.new(State.drgPos.X.Scale,State.drgPos.X.Offset+d.X,State.drgPos.Y.Scale,State.drgPos.Y.Offset+d.Y) end end)
@@ -1182,7 +1337,7 @@ local function LoadNaxiumHub()
         local function mkMiniHdr(txt) local h=Instance.new("Frame"); h.Size=UDim2.new(1,0,0,20); h.BackgroundTransparency=1; h.Parent=mScroll; L(txt,h,UDim2.new(1,-4,1,0),UDim2.new(0,4,0,0),"Accent",Enum.TextXAlignment.Left,Enum.Font.GothamBold,10); local d=Instance.new("Frame"); d.Size=UDim2.new(1,-8,0,1); d.Position=UDim2.new(0,4,1,-2); d.BackgroundColor3=C.Accent; d.BackgroundTransparency=0.72; d.BorderSizePixel=0; d.Parent=h; track(d,"BackgroundColor3","Accent") end
         mkMiniHdr("VISUALS"); mkTog(mScroll,"Enable ESP",0,"esp_en",false,nil,"ESP"); mkTog(mScroll,"Player Glow",0,"esp_glw",true,nil,"Glow")
         mkMiniHdr("SAFE"); mkTog(mScroll,"Proximity Alerts",0,"prox_en",false,nil,"Prox"); mkTog(mScroll,"Unlock Camera",0,"cam_en",false,nil,"Cam")
-        miniBtn.MouseButton1Click:Connect(function() miniUI.Visible=not miniUI.Visible end)
+        miniBtn.MouseButton1Click:Connect(function() if miniIsOpen then closeMiniUI() else openMiniUI() end end)
     end
 
     -- ============================================================
@@ -1196,7 +1351,7 @@ local function LoadNaxiumHub()
         local statusTxts={"Authenticating...","Loading configurations...","Connecting to servers...","Ready."}
         local stLbl=Instance.new("TextLabel"); stLbl.Size=UDim2.new(1,-20,0,14); stLbl.Position=UDim2.new(0,10,0,152); stLbl.BackgroundTransparency=1; stLbl.Text=statusTxts[1]; stLbl.TextColor3=Color3.fromRGB(85,160,215); stLbl.Font=Enum.Font.GothamMedium; stLbl.TextSize=10; stLbl.TextXAlignment=Enum.TextXAlignment.Center; stLbl.Parent=sf
         local st2=Instance.new("TextLabel"); st2.Size=UDim2.new(1,0,0,28); st2.Position=UDim2.new(0,0,0,170); st2.BackgroundTransparency=1; st2.Text="NAXIUM HUB"; st2.Font=Enum.Font.GothamBold; st2.TextSize=20; st2.Parent=sf; local tg3=Instance.new("UIGradient"); tg3.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(115,122,135)),ColorSequenceKeypoint.new(0.5,Color3.fromRGB(255,255,255)),ColorSequenceKeypoint.new(1,Color3.fromRGB(115,122,135))}); tg3.Rotation=90; tg3.Parent=st2
-        L("v1.6.0  |  Creatures of Sonaria",sf,UDim2.new(1,-20,0,12),UDim2.new(0,10,0,200),Color3.fromRGB(60,70,90),Enum.TextXAlignment.Center,Enum.Font.GothamMedium,8)
+        L("v1.7.0  |  Creatures of Sonaria",sf,UDim2.new(1,-20,0,12),UDim2.new(0,10,0,200),Color3.fromRGB(60,70,90),Enum.TextXAlignment.Center,Enum.Font.GothamMedium,8)
         local pbBg=Instance.new("Frame"); pbBg.Size=UDim2.new(1,-40,0,2); pbBg.Position=UDim2.new(0,20,0,220); pbBg.BackgroundColor3=Color3.fromRGB(22,30,44); pbBg.BorderSizePixel=0; pbBg.Parent=sf; Instance.new("UICorner",pbBg).CornerRadius=UDim.new(1,0)
         local pbFill=Instance.new("Frame"); pbFill.Size=UDim2.new(0,0,1,0); pbFill.BackgroundColor3=Color3.fromRGB(85,160,215); pbFill.BorderSizePixel=0; pbFill.Parent=pbBg; Instance.new("UICorner",pbFill).CornerRadius=UDim.new(1,0)
         task.spawn(function() for i3,txt in ipairs(statusTxts) do stLbl.Text=txt; S.Tween:Create(pbFill,TweenInfo.new(1.0,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),{Size=UDim2.new(i3/#statusTxts,0,1,0)}):Play(); task.wait(1.1) end end)
@@ -1205,7 +1360,8 @@ local function LoadNaxiumHub()
             S.Tween:Create(sf,TweenInfo.new(0.55,Enum.EasingStyle.Sine),{BackgroundTransparency=1}):Play(); S.Tween:Create(pbBg,TweenInfo.new(0.55),{BackgroundTransparency=1}):Play(); S.Tween:Create(pbFill,TweenInfo.new(0.55),{BackgroundTransparency=1}):Play()
             for _,ch in ipairs(sf:GetDescendants()) do if ch:IsA("TextLabel") or ch:IsA("ImageLabel") or ch:IsA("UIStroke") then pcall(function() S.Tween:Create(ch,TweenInfo.new(0.55),{Transparency=1}):Play() end); pcall(function() S.Tween:Create(ch,TweenInfo.new(0.55),{TextTransparency=1}):Play() end); pcall(function() S.Tween:Create(ch,TweenInfo.new(0.55),{ImageTransparency=1}):Play() end) end end
             task.delay(0.6,function()
-                if sf.Parent then sf:Destroy(); UI.mf.Visible=true end
+                if sf.Parent then sf:Destroy() end
+                openMainMenu()
                 -- Play startup sound
                 pcall(function()
                     local snd=Instance.new("Sound"); snd.SoundId="rbxassetid://6599575767"; snd.Volume=0.75; snd.Parent=S.Sound; snd:Play()
@@ -1231,7 +1387,7 @@ local function LoadNaxiumHub()
         end) end
     end)
 
-    print("NaxiumHub v1.6.0 loaded!")
+    print("NaxiumHub v1.7.0 loaded!")
 
     end) -- end pcall
     if not ok then
