@@ -87,7 +87,6 @@ local function LoadNaxiumHub()
 
     local State = {
         saveData={_G.NaxiumSave or {}}, ConfigElements={}, tListeners={}, TogSync={},
-        -- NX user detection: keyed by UserId (number) for stability
         knownNaxiumUserIds={},
         rankCache={},
         hDrg=false, hDrgSt=nil, hDrgPos=nil, hClickTime=0, hMoved=false,
@@ -98,7 +97,7 @@ local function LoadNaxiumHub()
 
     local UI = {}
 
-    -- ── MENU CONTROLLER (hoisted so all sections can reference) ──
+    -- ── MENU CONTROLLER ──
     local mfIsOpen  = false
     local miniIsOpen= false
     local openMainMenu, closeMainMenu, toggleMainMenu
@@ -141,7 +140,7 @@ local function LoadNaxiumHub()
     
     local function sv(k,v) 
         pcall(function() State.saveData[k]=v end) 
-        if autoSaveConfig then task.spawn(autoSaveConfig) end -- Force auto-save smoothly!
+        if autoSaveConfig then task.spawn(autoSaveConfig) end 
     end
     local function ld(k,def) local ok2,v=pcall(function() return State.saveData[k] end); return (ok2 and v~=nil) and v or def end
 
@@ -168,7 +167,6 @@ local function LoadNaxiumHub()
         return res
     end
 
-    -- Destroy old UI
     pcall(function()
         local tp; pcall(function() tp=gethui() end)
         if not tp then pcall(function() tp=game:GetService("CoreGui") end) end
@@ -179,7 +177,6 @@ local function LoadNaxiumHub()
         end
     end)
 
-    -- Theme
     local DefaultColors = {
         Bg=Color3.fromRGB(11,14,20), DkBg=Color3.fromRGB(7,9,13), Accent=Color3.fromRGB(85,160,215),
         White=Color3.fromRGB(212,218,228), Gray=Color3.fromRGB(118,128,144), Green=Color3.fromRGB(65,190,105),
@@ -197,7 +194,6 @@ local function LoadNaxiumHub()
 
     UI.gui=Instance.new("ScreenGui"); UI.gui.Name="NaxiumHub"; UI.gui.ResetOnSpawn=false; UI.gui.ZIndexBehavior=Enum.ZIndexBehavior.Sibling; UI.gui.IgnoreGuiInset=true; UI.gui.Parent=targetParent
 
-    -- ── Helpers ──────────────────────────────────────────────
     local function L(txt,par,sz,pos,col,ax,fnt,ts)
         local lb=Instance.new("TextLabel"); lb.Text=txt or ""; lb.Parent=par; lb.Size=sz or UDim2.new(1,0,0,18); lb.Position=pos or UDim2.new(0,0,0,0)
         lb.BackgroundTransparency=1; lb.TextXAlignment=ax or Enum.TextXAlignment.Left; lb.Font=fnt or Enum.Font.GothamMedium; lb.TextSize=ts or 11
@@ -295,7 +291,7 @@ local function LoadNaxiumHub()
 
     -- ============================================================
     -- NX CHAT DETECTION
-    -- Removed to prevent saying anything in chat
+    -- Passive only. Will not send any messages.
     -- ============================================================
     local function markNaxiumUser(p)
         if not p or p==player then return end
@@ -542,18 +538,26 @@ local function LoadNaxiumHub()
             local row=Instance.new("TextButton"); row.Size=UDim2.new(1,-4,0,28); row.BackgroundColor3=rowBg; row.BackgroundTransparency=0.3; row.BorderSizePixel=0; row.Text=""; row.AutoButtonColor=false; row.Parent=psf; Instance.new("UICorner",row).CornerRadius=UDim.new(0,5)
             row.MouseEnter:Connect(function() if not isMe then S.Tween:Create(row,TweenInfo.new(0.12),{BackgroundTransparency=0.08}):Play() end end); row.MouseLeave:Connect(function() S.Tween:Create(row,TweenInfo.new(0.12),{BackgroundTransparency=0.3}):Play() end)
             row.MouseButton1Click:Connect(function() loadProf(p,not isMe) end)
+            
             local av=Instance.new("ImageLabel"); av.Size=UDim2.new(0,20,0,20); av.Position=UDim2.new(0,6,0.5,0); av.AnchorPoint=Vector2.new(0,0.5); av.BackgroundColor3=C.Bg; av.BorderSizePixel=0; av.Parent=row; Instance.new("UICorner",av).CornerRadius=UDim.new(1,0)
             task.spawn(function() local ok2,img=pcall(function() return S.Players:GetUserThumbnailAsync(p.UserId,Enum.ThumbnailType.HeadShot,Enum.ThumbnailSize.Size48x48) end); if ok2 then av.Image=img end end)
-            local nl=Instance.new("TextLabel"); nl.Size=UDim2.new(1,-130,1,0); nl.Position=UDim2.new(0,30,0,0); nl.BackgroundTransparency=1
-            nl.Text = isMe and "You" or p.DisplayName
+            
+            local nl=Instance.new("TextLabel"); nl.Size=UDim2.new(1,-150,1,0); nl.Position=UDim2.new(0,30,0,0); nl.BackgroundTransparency=1
+            nl.Text = p.DisplayName
             nl.TextColor3 = isMe and C.Accent or isNX and C.Yellow or C.White
             nl.Font = (isMe or isNX) and Enum.Font.GothamBold or Enum.Font.GothamMedium; nl.TextSize=11; nl.TextXAlignment=Enum.TextXAlignment.Left; nl.TextTruncate=Enum.TextTruncate.AtEnd; nl.Parent=row; track(nl,"TextColor3", isMe and "Accent" or isNX and "Yellow" or "White")
-            local rl=Instance.new("TextLabel"); rl.Size=UDim2.new(0,100,1,0); rl.Position=UDim2.new(1,-105,0,0); rl.BackgroundTransparency=1; rl.Text="..."; rl.TextColor3=C.Gray; rl.Font=Enum.Font.GothamMedium; rl.TextSize=10; rl.TextXAlignment=Enum.TextXAlignment.Right; rl.TextTruncate=Enum.TextTruncate.AtEnd; rl.Parent=row
+            
+            local rl=Instance.new("TextLabel"); rl.Size=UDim2.new(0,140,1,0); rl.Position=UDim2.new(1,-145,0,0); rl.BackgroundTransparency=1; rl.Text="..."; rl.TextColor3=C.Gray; rl.Font=Enum.Font.GothamMedium; rl.TextSize=10; rl.TextXAlignment=Enum.TextXAlignment.Right; rl.TextTruncate=Enum.TextTruncate.AtEnd; rl.Parent=row
             fetchRank(p,function(rv,rn)
                 if not row or not row.Parent then return end
-                if isMe then rl.Text="YOU"; rl.TextColor3=C.Accent
-                elseif isNX then rl.Text="⭐ "..(rv>0 and rn or ""); rl.TextColor3=C.Yellow
-                else rl.Text=rv>0 and rn or "Not in group"; rl.TextColor3=rv>0 and C.White or C.Gray end
+                local rankStr = rv>0 and rn or "Not in group"
+                if isMe then 
+                    rl.Text="You - " .. rankStr; rl.TextColor3=C.Accent
+                elseif isNX then 
+                    rl.Text="⭐ " .. (rv>0 and rn or ""); rl.TextColor3=C.Yellow
+                else 
+                    rl.Text=rankStr; rl.TextColor3=rv>0 and C.White or C.Gray 
+                end
             end)
         end
 
