@@ -346,19 +346,18 @@ local function LoadNaxiumHub()
     -- DEFAULT TO TRUE ON EXECUTE
     local showHud = ld("showHud", true)
     
-    -- Draggable & Sleek HUD
-    UI.topHud = Instance.new("Frame"); UI.topHud.Size = UDim2.new(0, 200, 0, 36); UI.topHud.Position = UDim2.new(0.5, 0, 0, 10); UI.topHud.AnchorPoint = Vector2.new(0.5, 0); UI.topHud.BackgroundColor3 = C.DkBg; UI.topHud.BackgroundTransparency = 0.35; UI.topHud.BorderSizePixel = 0; UI.topHud.Visible = showHud; UI.topHud.Parent = UI.gui
-    track(UI.topHud, "BackgroundColor3", "DkBg"); Instance.new("UICorner", UI.topHud).CornerRadius = UDim.new(0, 8)
-    local topHudStr = Instance.new("UIStroke"); topHudStr.Thickness = 1.5; topHudStr.Transparency = 0.5; topHudStr.Parent = UI.topHud; track(topHudStr, "Color", "Accent")
+    -- Clean, Slimline HUD (No Border)
+    UI.topHud = Instance.new("Frame"); UI.topHud.Size = UDim2.new(0, 160, 0, 24); UI.topHud.Position = UDim2.new(0.5, 0, 0, 10); UI.topHud.AnchorPoint = Vector2.new(0.5, 0); UI.topHud.BackgroundColor3 = C.DkBg; UI.topHud.BackgroundTransparency = 0.35; UI.topHud.BorderSizePixel = 0; UI.topHud.Visible = showHud; UI.topHud.Parent = UI.gui
+    track(UI.topHud, "BackgroundColor3", "DkBg"); Instance.new("UICorner", UI.topHud).CornerRadius = UDim.new(0, 6)
 
-    UI.fpsLbl = L("0 FPS", UI.topHud, UDim2.new(0.5,-25,1,0), UDim2.new(0,15,0,0), "White", Enum.TextXAlignment.Left, Enum.Font.GothamBold, 12)
+    UI.fpsLbl = L("0 FPS", UI.topHud, UDim2.new(0.5,-20,1,0), UDim2.new(0,10,0,0), "White", Enum.TextXAlignment.Left, Enum.Font.GothamBold, 11)
     UI.fpsLbl.TextStrokeTransparency = 0.1; UI.fpsLbl.TextStrokeColor3 = Color3.new(0,0,0)
     
-    UI.pingLbl = L("0 ms", UI.topHud, UDim2.new(0.5,-25,1,0), UDim2.new(0.5,10,0,0), "White", Enum.TextXAlignment.Right, Enum.Font.GothamBold, 12)
+    UI.pingLbl = L("0 ms", UI.topHud, UDim2.new(0.5,-20,1,0), UDim2.new(0.5,10,0,0), "White", Enum.TextXAlignment.Right, Enum.Font.GothamBold, 11)
     UI.pingLbl.TextStrokeTransparency = 0.1; UI.pingLbl.TextStrokeColor3 = Color3.new(0,0,0)
     
-    UI.hudLogo = Instance.new("ImageButton"); UI.hudLogo.Size = UDim2.new(0,24,0,24); UI.hudLogo.Position = UDim2.new(0.5,0,0.5,0); UI.hudLogo.AnchorPoint = Vector2.new(0.5,0.5); UI.hudLogo.BackgroundTransparency = 1; UI.hudLogo.Image = "rbxassetid://75254466518091"; UI.hudLogo.ZIndex = 2; UI.hudLogo.Parent = UI.topHud
-    UI.logoShadow = Instance.new("ImageLabel"); UI.logoShadow.Size = UDim2.new(1,2,1,2); UI.logoShadow.Position = UDim2.new(0.5,0,0.5,2); UI.logoShadow.AnchorPoint = Vector2.new(0.5,0.5); UI.logoShadow.BackgroundTransparency = 1; UI.logoShadow.Image = "rbxassetid://75254466518091"; UI.logoShadow.ImageColor3 = Color3.new(0,0,0); UI.logoShadow.ImageTransparency = 0.4; UI.logoShadow.ZIndex = 1; UI.logoShadow.Parent = UI.hudLogo
+    UI.hudLogo = Instance.new("ImageButton"); UI.hudLogo.Size = UDim2.new(0,16,0,16); UI.hudLogo.Position = UDim2.new(0.5,0,0.5,0); UI.hudLogo.AnchorPoint = Vector2.new(0.5,0.5); UI.hudLogo.BackgroundTransparency = 1; UI.hudLogo.Image = "rbxassetid://75254466518091"; UI.hudLogo.ZIndex = 2; UI.hudLogo.Parent = UI.topHud
+    UI.logoShadow = Instance.new("ImageLabel"); UI.logoShadow.Size = UDim2.new(1,2,1,2); UI.logoShadow.Position = UDim2.new(0.5,0,0.5,1); UI.logoShadow.AnchorPoint = Vector2.new(0.5,0.5); UI.logoShadow.BackgroundTransparency = 1; UI.logoShadow.Image = "rbxassetid://75254466518091"; UI.logoShadow.ImageColor3 = Color3.new(0,0,0); UI.logoShadow.ImageTransparency = 0.4; UI.logoShadow.ZIndex = 1; UI.logoShadow.Parent = UI.hudLogo
     
     UI.hudLogo.MouseEnter:Connect(function() S.Tween:Create(UI.hudLogo,TweenInfo.new(0.15),{ImageColor3=C.Accent}):Play() end)
     UI.hudLogo.MouseLeave:Connect(function() S.Tween:Create(UI.hudLogo,TweenInfo.new(0.15),{ImageColor3=Color3.new(1,1,1)}):Play() end)
@@ -697,7 +696,7 @@ local function LoadNaxiumHub()
     -- ============================================================
     do
         local THT_L = mkCard(UI.THT, UDim2.new(0, W_HALF, 0, 145), UDim2.new(0, 0, 0, 0)); mkHdr(THT_L, "BACKGROUND IMAGE", 6)
-        THT_L.ZIndex = 50 -- Priority rendering for the tooltip!
+        UI.THT.ZIndex = 50 -- Priority rendering for the tooltip!
         
         local bgThemes = {{name="Naxius Theme", id="97654622883467"}, {name="Samurai", id="80311829005401"}}
         local openBgBtn = Instance.new("TextButton"); openBgBtn.Size = UDim2.new(1, -20, 0, 24); openBgBtn.Position = UDim2.new(0, 10, 0, 30); openBgBtn.BackgroundColor3 = C.Accent; openBgBtn.BackgroundTransparency = 0.35; openBgBtn.BorderSizePixel = 0; openBgBtn.Text = "None  v"; openBgBtn.Font = Enum.Font.GothamBold; openBgBtn.TextSize = 11; openBgBtn.TextColor3 = Color3.new(1,1,1); openBgBtn.Parent = THT_L; Instance.new("UICorner", openBgBtn).CornerRadius = UDim.new(0, 5)
@@ -719,6 +718,7 @@ local function LoadNaxiumHub()
         end)
         mkSlider(THT_L, "Image Opacity", 62, "bg_op", 0, 1, 0.3, "%.2f", function(v) UI.bgImg.ImageTransparency = 1-v end)
 
+        -- Custom Image Input & Tooltip Helper
         local customImgBox = Instance.new("TextBox"); customImgBox.Size = UDim2.new(1, -45, 0, 26); customImgBox.Position = UDim2.new(0, 10, 0, 105); customImgBox.BackgroundColor3 = Color3.fromRGB(12, 16, 24); customImgBox.BackgroundTransparency = 0.2; customImgBox.BorderSizePixel = 0; customImgBox.PlaceholderText = "Paste Image ID here..."; customImgBox.Text = ""; customImgBox.Font = Enum.Font.GothamMedium; customImgBox.TextSize = 10; customImgBox.TextColor3 = C.White; customImgBox.PlaceholderColor3 = C.Gray; customImgBox.ClearTextOnFocus = false; customImgBox.Parent = THT_L; Instance.new("UICorner", customImgBox).CornerRadius = UDim.new(0, 5)
         local cpad2 = Instance.new("UIPadding"); cpad2.PaddingLeft = UDim.new(0, 8); cpad2.Parent = customImgBox; local cboxStr = Instance.new("UIStroke"); cboxStr.Thickness = 1; cboxStr.Transparency = 0.7; cboxStr.Parent = customImgBox; track(cboxStr, "Color", "Accent")
         customImgBox.FocusLost:Connect(function(enter) if enter then local id = customImgBox.Text:match("%d+"); if id then UI.bgImg.Image = "rbxassetid://"..id; sv("bg_img", UI.bgImg.Image); openBgBtn.Text = "Custom  v" else customImgBox.Text = "" end end end)
@@ -859,7 +859,7 @@ local function LoadNaxiumHub()
             State.saveData={}
             if delfile and isfile then pcall(function() if isfile("NaxiumHub/autoload.txt") then delfile("NaxiumHub/autoload.txt") end end) end
             for _,el in ipairs(State.ConfigElements) do pcall(function() el.update(el.default) end) end
-            setRainbow(false); C.Bg=Color3.fromRGB(11,14,20); C.DkBg=Color3.fromRGB(7,9,13); C.Accent=Color3.fromRGB(85,160,215); C.Card=Color3.fromRGB(14,18,26); C.Tab=Color3.fromRGB(26,34,48); applyTheme()
+            setRainbow(false)
             cfgResetBtn.Text="  Done! All reset."; task.delay(1.5,function() cfgResetBtn.Text="  Reset All to Default" end)
         end)
     end
@@ -882,18 +882,25 @@ local function LoadNaxiumHub()
             else for obj,orig in pairs(partOrig) do if obj and obj.Parent then obj.Enabled=orig end end; partOrig={} end
         end) end) PY=PY+30
         mkTog(perfCard,"Disable Shadows",PY,"dis_shd",false,function(v) S.Lighting.GlobalShadows=not v end) PY=PY+30
-        mkTog(perfCard,"Disable Fog",PY,"dis_fog",false,function(v) S.Lighting.FogEnd=v and 9e8 or 1000 end) PY=PY+30
-        local origAtmosphere=nil; local origBrightness=S.Lighting.Brightness; local origAmbient=S.Lighting.Ambient; local origOutdoor=S.Lighting.OutdoorAmbient; local removedEffects={}
+        
+        -- The Anti-Forcefield Logic!
+        local origFogEnd = S.Lighting.FogEnd
+        mkTog(perfCard,"Disable Fog",PY,"dis_fog",false,function(v) 
+            if v then origFogEnd = S.Lighting.FogEnd; S.Lighting.FogEnd = 100000 else S.Lighting.FogEnd = origFogEnd end
+        end) PY=PY+30
+        
+        local origAtmosphere=nil; local origBrightness=S.Lighting.Brightness; local origAmbient=S.Lighting.Ambient; local origOutdoor=S.Lighting.OutdoorAmbient; local removedEffects={}; local fFogEnd=S.Lighting.FogEnd
         mkTog(perfCard,"Fullbright",PY,"fl_brt",false,function(v)
             if v then
-                origBrightness=S.Lighting.Brightness; origAmbient=S.Lighting.Ambient; origOutdoor=S.Lighting.OutdoorAmbient
-                S.Lighting.Brightness=10; S.Lighting.Ambient=Color3.fromRGB(178,178,178); S.Lighting.OutdoorAmbient=Color3.fromRGB(178,178,178)
+                origBrightness=S.Lighting.Brightness; origAmbient=S.Lighting.Ambient; origOutdoor=S.Lighting.OutdoorAmbient; fFogEnd=S.Lighting.FogEnd
+                S.Lighting.Brightness=10; S.Lighting.Ambient=Color3.fromRGB(178,178,178); S.Lighting.OutdoorAmbient=Color3.fromRGB(178,178,178); S.Lighting.FogEnd=100000
                 for _,eff in ipairs(S.Lighting:GetChildren()) do if eff:IsA("Atmosphere") or eff:IsA("ColorCorrectionEffect") or eff:IsA("BloomEffect") or eff:IsA("SunRaysEffect") then table.insert(removedEffects,{eff=eff,parent=eff.Parent}); eff.Parent=nil end end
             else
-                S.Lighting.Brightness=origBrightness; S.Lighting.Ambient=origAmbient; S.Lighting.OutdoorAmbient=origOutdoor
+                S.Lighting.Brightness=origBrightness; S.Lighting.Ambient=origAmbient; S.Lighting.OutdoorAmbient=origOutdoor; S.Lighting.FogEnd=fFogEnd
                 for _,r in ipairs(removedEffects) do pcall(function() r.eff.Parent=r.parent end) end; removedEffects={}
             end
         end) PY=PY+30
+        
         mkTog(perfCard,"Hide Other Players",PY,"hid_plr",false,function(v) for _,p in ipairs(S.Players:GetPlayers()) do if p~=player and p.Character then p.Character.Parent=v and nil or workspace end end end) PY=PY+30
         mkSlider(perfCard,"Camera FOV",PY,"cam_fov",60,120,70,"%.0f",function(v) if workspace.CurrentCamera then workspace.CurrentCamera.FieldOfView=v end end)
 
