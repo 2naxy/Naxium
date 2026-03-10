@@ -307,7 +307,6 @@ local function LoadNaxiumHub()
     local mf = Instance.new("Frame")
     local showHud = ld("showHud", false)
     
-    -- Clean HUD (No background/outline)
     local topHud = Instance.new("Frame"); topHud.Size = UDim2.new(0, 160, 0, 26); topHud.Position = UDim2.new(0.5, 0, 0, 4); topHud.AnchorPoint = Vector2.new(0.5, 0); topHud.BackgroundTransparency = 1; topHud.BorderSizePixel = 0; topHud.Visible = showHud; topHud.Parent = gui
     local fpsLbl = L("0 FPS", topHud, UDim2.new(0.5,-20,1,0), UDim2.new(0,12,0,0), "White", Enum.TextXAlignment.Left, Enum.Font.GothamBold, 10)
     local pingLbl = L("0 ms", topHud, UDim2.new(0.5,-20,1,0), UDim2.new(0.5,8,0,0), "White", Enum.TextXAlignment.Right, Enum.Font.GothamBold, 10)
@@ -316,7 +315,6 @@ local function LoadNaxiumHub()
     hudLogo.MouseEnter:Connect(function() TweenService:Create(hudLogo,TweenInfo.new(0.15),{ImageColor3=C.Accent}):Play() end)
     hudLogo.MouseLeave:Connect(function() TweenService:Create(hudLogo,TweenInfo.new(0.15),{ImageColor3=Color3.new(1,1,1)}):Play() end)
     
-    -- Draggable & Clickable Logo Logic
     local hDrg, hDrgSt, hDrgPos, hClickTime, hMoved = false, nil, nil, 0, false
     hudLogo.InputBegan:Connect(function(i)
         if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
@@ -333,7 +331,6 @@ local function LoadNaxiumHub()
     UserInputService.InputEnded:Connect(function(i)
         if hDrg and (i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch) then
             hDrg = false
-            -- If we didn't drag it, treat it as a standard click to toggle main menu
             if not hMoved and (tick() - hClickTime) < 0.25 then
                 mf.Visible = not mf.Visible
             end
@@ -411,7 +408,6 @@ local function LoadNaxiumHub()
     do
         local sc = mkCard(HT, UDim2.new(0,W_L3,0,85), UDim2.new(0,0,0,0)); mkHdr(sc,"SERVER INFO",6)
         
-        -- Copyable Server ID
         local sidV = mkRow(sc,"#","ID: loading...",25)
         local rawSid = game.JobId ~= "" and game.JobId or "Studio"
         sidV.Text = "ID: " .. string.sub(rawSid, 1, 12) .. "..."
@@ -423,20 +419,11 @@ local function LoadNaxiumHub()
         end)
 
         local regV = mkRow(sc,"@","Region: detecting...",45)
-        
-        -- Accurate Server Uptime Fix
         local ageV = mkRow(sc,"T","Uptime: --",65)
         RunService.Heartbeat:Connect(function() 
             local uptime = workspace.DistributedGameTime
-            local d = math.floor(uptime / 86400)
-            local h = math.floor((uptime % 86400) / 3600)
-            local m = math.floor((uptime % 3600) / 60)
-            local s = math.floor(uptime % 60)
-            if d > 0 then
-                ageV.Text = string.format("Uptime: %dd %02d:%02d:%02d", d, h, m, s)
-            else
-                ageV.Text = string.format("Uptime: %02d:%02d:%02d", h, m, s)
-            end
+            local d = math.floor(uptime / 86400); local h = math.floor((uptime % 86400) / 3600); local m = math.floor((uptime % 3600) / 60); local s = math.floor(uptime % 60)
+            if d > 0 then ageV.Text = string.format("Uptime: %dd %02d:%02d:%02d", d, h, m, s) else ageV.Text = string.format("Uptime: %02d:%02d:%02d", h, m, s) end
         end)
         
         task.spawn(function()
@@ -499,17 +486,11 @@ local function LoadNaxiumHub()
             
             fetchRank(p, function(rv, rn)
                 if not row or not row.Parent then return end
-                
-                -- "YOU" Logic vs Star logic
                 local isMe = (p == player)
-                local isNaxiumUser = false -- Set this true if you implement a cross-server check
+                local isNaxiumUser = false 
                 local prefix = ""
                 
-                if isMe then
-                    prefix = "YOU  |  "
-                elseif isNaxiumUser then
-                    prefix = "⭐ "
-                end
+                if isMe then prefix = "YOU  |  " elseif isNaxiumUser then prefix = "⭐ " end
                 
                 rl.Text = prefix .. rn
                 rl.TextColor3 = rv > 0 and C.White or C.Gray
@@ -642,6 +623,8 @@ local function LoadNaxiumHub()
     -- ============================================================
     do
         local THT_L = mkCard(THT, UDim2.new(0, W_HALF, 0, 145), UDim2.new(0, 0, 0, 0)); mkHdr(THT_L, "BACKGROUND IMAGE", 6)
+        THT_L.ZIndex = 10 -- Priority rendering for the tooltip!
+        
         local bgThemes = {{name="Naxius Theme", id="97654622883467"}, {name="Samurai", id="80311829005401"}}
         local openBgBtn = Instance.new("TextButton"); openBgBtn.Size = UDim2.new(1, -20, 0, 24); openBgBtn.Position = UDim2.new(0, 10, 0, 30); openBgBtn.BackgroundColor3 = C.Accent; openBgBtn.BackgroundTransparency = 0.35; openBgBtn.BorderSizePixel = 0; openBgBtn.Text = "None  v"; openBgBtn.Font = Enum.Font.GothamBold; openBgBtn.TextSize = 11; openBgBtn.TextColor3 = Color3.new(1,1,1); openBgBtn.Parent = THT_L; Instance.new("UICorner", openBgBtn).CornerRadius = UDim.new(0, 5)
 
@@ -662,18 +645,17 @@ local function LoadNaxiumHub()
         end)
         mkSlider(THT_L, "Image Opacity", 62, "bg_op", 0, 1, 0.3, "%.2f", function(v) bgImg.ImageTransparency = 1-v end)
 
-        -- Custom Image Input & Tooltip Helper
         local customImgBox = Instance.new("TextBox"); customImgBox.Size = UDim2.new(1, -45, 0, 26); customImgBox.Position = UDim2.new(0, 10, 0, 105); customImgBox.BackgroundColor3 = Color3.fromRGB(12, 16, 24); customImgBox.BackgroundTransparency = 0.2; customImgBox.BorderSizePixel = 0; customImgBox.PlaceholderText = "Paste Image ID here..."; customImgBox.Text = ""; customImgBox.Font = Enum.Font.GothamMedium; customImgBox.TextSize = 10; customImgBox.TextColor3 = C.White; customImgBox.PlaceholderColor3 = C.Gray; customImgBox.ClearTextOnFocus = false; customImgBox.Parent = THT_L; Instance.new("UICorner", customImgBox).CornerRadius = UDim.new(0, 5)
         local cpad2 = Instance.new("UIPadding"); cpad2.PaddingLeft = UDim.new(0, 8); cpad2.Parent = customImgBox; local cboxStr = Instance.new("UIStroke"); cboxStr.Thickness = 1; cboxStr.Transparency = 0.7; cboxStr.Parent = customImgBox; track(cboxStr, "Color", "Accent")
         customImgBox.FocusLost:Connect(function(enter) if enter then local id = customImgBox.Text:match("%d+"); if id then bgImg.Image = "rbxassetid://"..id; openBgBtn.Text = "Custom  v" else customImgBox.Text = "" end end end)
 
         local helpBtn = Instance.new("TextButton")
-        helpBtn.Size = UDim2.new(0, 20, 0, 20); helpBtn.Position = UDim2.new(1, -25, 0, 108); helpBtn.BackgroundTransparency = 1; helpBtn.Text = "?"; helpBtn.Font = Enum.Font.GothamBold; helpBtn.TextSize = 13; helpBtn.TextColor3 = C.Accent; helpBtn.Parent = THT_L
+        helpBtn.Size = UDim2.new(0, 20, 0, 20); helpBtn.Position = UDim2.new(1, -25, 0, 108); helpBtn.BackgroundTransparency = 1; helpBtn.Text = "?"; helpBtn.Font = Enum.Font.GothamBold; helpBtn.TextSize = 13; helpBtn.TextColor3 = C.Accent; helpBtn.ZIndex = 10; helpBtn.Parent = THT_L
         
         local helpPopup = Instance.new("Frame")
-        helpPopup.Size = UDim2.new(0, 180, 0, 50); helpPopup.Position = UDim2.new(1, -200, 0, 135); helpPopup.BackgroundColor3 = C.DkBg; helpPopup.BorderSizePixel = 0; helpPopup.Visible = false; helpPopup.ZIndex = 100; helpPopup.Parent = THT_L; Instance.new("UICorner", helpPopup).CornerRadius = UDim.new(0, 6)
+        helpPopup.Size = UDim2.new(0, 210, 0, 60); helpPopup.Position = UDim2.new(1, -230, 0, 135); helpPopup.BackgroundColor3 = C.DkBg; helpPopup.BorderSizePixel = 0; helpPopup.Visible = false; helpPopup.ZIndex = 100; helpPopup.Parent = THT_L; Instance.new("UICorner", helpPopup).CornerRadius = UDim.new(0, 6)
         local helpStr = Instance.new("UIStroke"); helpStr.Thickness = 1.5; helpStr.Parent = helpPopup; track(helpStr, "Color", "Accent")
-        local helpTxt = Instance.new("TextLabel"); helpTxt.Size = UDim2.new(1, -12, 1, -10); helpTxt.Position = UDim2.new(0, 6, 0, 5); helpTxt.BackgroundTransparency = 1; helpTxt.Text = "Upload an image to Roblox, copy the ID from the website URL, and paste it here."; helpTxt.Font = Enum.Font.GothamMedium; helpTxt.TextSize = 10; helpTxt.TextColor3 = C.White; helpTxt.TextWrapped = true; helpTxt.Parent = helpPopup
+        local helpTxt = Instance.new("TextLabel"); helpTxt.Size = UDim2.new(1, -12, 1, -10); helpTxt.Position = UDim2.new(0, 6, 0, 5); helpTxt.BackgroundTransparency = 1; helpTxt.Text = "Must be an IMAGE ID, not a Decal ID!\n(Get the true Image ID from the Creator Dashboard or BTRoblox)."; helpTxt.Font = Enum.Font.GothamMedium; helpTxt.TextSize = 10; helpTxt.TextColor3 = C.White; helpTxt.TextWrapped = true; helpTxt.ZIndex = 101; helpTxt.Parent = helpPopup
         
         helpBtn.MouseEnter:Connect(function() helpPopup.Visible = true; helpBtn.TextColor3 = C.White end)
         helpBtn.MouseLeave:Connect(function() helpPopup.Visible = false; helpBtn.TextColor3 = C.Accent end)
