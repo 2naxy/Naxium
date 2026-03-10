@@ -103,6 +103,7 @@ local function LoadNaxiumHub()
     local miniIsOpen= false
     local openMainMenu, closeMainMenu, toggleMainMenu
     local openMiniUI,   closeMiniUI
+    local autoSaveConfig = nil -- Set in Config section to auto-save properties seamlessly!
 
     openMainMenu = function()
         if mfIsOpen then return end; mfIsOpen=true
@@ -137,7 +138,11 @@ local function LoadNaxiumHub()
             {Size=UDim2.new(0,240,0,0),BackgroundTransparency=1}):Play()
         task.delay(0.25,function() if miniUI then miniUI.Visible=false end end)
     end
-    local function sv(k,v) pcall(function() State.saveData[k]=v end) end
+    
+    local function sv(k,v) 
+        pcall(function() State.saveData[k]=v end) 
+        if autoSaveConfig then task.spawn(autoSaveConfig) end -- Force auto-save smoothly!
+    end
     local function ld(k,def) local ok2,v=pcall(function() return State.saveData[k] end); return (ok2 and v~=nil) and v or def end
 
     local function encodeData(d)
@@ -291,11 +296,10 @@ local function LoadNaxiumHub()
 
     -- ============================================================
     -- NX CHAT DETECTION
-    -- Store by UserId for stability. Fire refreshList on detection.
     -- ============================================================
     local function markNaxiumUser(p)
         if not p or p==player then return end
-        if State.knownNaxiumUserIds[p.UserId] then return end -- already known
+        if State.knownNaxiumUserIds[p.UserId] then return end
         State.knownNaxiumUserIds[p.UserId] = true
         if refreshList then refreshList() end
     end
@@ -317,7 +321,6 @@ local function LoadNaxiumHub()
             end
         end)
     end
-    -- Also hook TextChatService MessageReceived for servers using new chat
     pcall(function()
         if S.TCS.ChatVersion == Enum.ChatVersion.TextChatService then
             S.TCS.MessageReceived:Connect(function(msg)
@@ -362,87 +365,19 @@ local function LoadNaxiumHub()
     Instance.new("UICorner",UI.topHud).CornerRadius = UDim.new(0,5)
     local hudStroke = Instance.new("UIStroke"); hudStroke.Thickness=1; hudStroke.Transparency=0.6; hudStroke.Parent=UI.topHud; track(hudStroke,"Color","Accent")
 
-    -- FPS label (left side)
-    UI.fpsLbl = Instance.new("TextLabel")
-    UI.fpsLbl.Size = UDim2.new(0,76,1,0)
-    UI.fpsLbl.Position = UDim2.new(0,0,0,0)
-    UI.fpsLbl.BackgroundTransparency = 1
-    UI.fpsLbl.Text = "-- FPS"
-    UI.fpsLbl.Font = Enum.Font.GothamBold
-    UI.fpsLbl.TextSize = 12
-    UI.fpsLbl.TextXAlignment = Enum.TextXAlignment.Center
-    UI.fpsLbl.TextColor3 = C.White
-    UI.fpsLbl.TextStrokeTransparency = 0.15
-    UI.fpsLbl.TextStrokeColor3 = Color3.new(0,0,0)
-    UI.fpsLbl.Parent = UI.topHud
+    UI.fpsLbl = Instance.new("TextLabel"); UI.fpsLbl.Size = UDim2.new(0,76,1,0); UI.fpsLbl.Position = UDim2.new(0,0,0,0); UI.fpsLbl.BackgroundTransparency = 1; UI.fpsLbl.Text = "-- FPS"; UI.fpsLbl.Font = Enum.Font.GothamBold; UI.fpsLbl.TextSize = 12; UI.fpsLbl.TextXAlignment = Enum.TextXAlignment.Center; UI.fpsLbl.TextColor3 = C.White; UI.fpsLbl.TextStrokeTransparency = 0.15; UI.fpsLbl.TextStrokeColor3 = Color3.new(0,0,0); UI.fpsLbl.Parent = UI.topHud
+    local hudDivL = Instance.new("Frame"); hudDivL.Size = UDim2.new(0,1,0,16); hudDivL.Position = UDim2.new(0,76,0.5,0); hudDivL.AnchorPoint = Vector2.new(0,0.5); hudDivL.BackgroundColor3 = C.Accent; hudDivL.BackgroundTransparency = 0.72; hudDivL.BorderSizePixel = 0; hudDivL.Parent = UI.topHud; track(hudDivL,"BackgroundColor3","Accent")
+    UI.hudLogo = Instance.new("ImageButton"); UI.hudLogo.Size = UDim2.new(0,20,0,20); UI.hudLogo.Position = UDim2.new(0.5,0,0.5,0); UI.hudLogo.AnchorPoint = Vector2.new(0.5,0.5); UI.hudLogo.BackgroundTransparency = 1; UI.hudLogo.Image = "rbxassetid://75254466518091"; UI.hudLogo.ZIndex = 3; UI.hudLogo.Parent = UI.topHud
+    local logoGlow = Instance.new("ImageLabel"); logoGlow.Size = UDim2.new(1,10,1,10); logoGlow.Position = UDim2.new(0.5,0,0.5,0); logoGlow.AnchorPoint = Vector2.new(0.5,0.5); logoGlow.BackgroundTransparency = 1; logoGlow.Image = "rbxassetid://75254466518091"; logoGlow.ImageColor3 = C.Accent; logoGlow.ImageTransparency = 0.7; logoGlow.ZIndex = 2; logoGlow.Parent = UI.hudLogo; track(logoGlow,"ImageColor3","Accent"); S.Tween:Create(logoGlow,TweenInfo.new(1.8,Enum.EasingStyle.Sine,Enum.EasingDirection.InOut,-1,true),{ImageTransparency=0.92}):Play()
+    local hudDivR = Instance.new("Frame"); hudDivR.Size = UDim2.new(0,1,0,16); hudDivR.Position = UDim2.new(1,-76,0.5,0); hudDivR.AnchorPoint = Vector2.new(1,0.5); hudDivR.BackgroundColor3 = C.Accent; hudDivR.BackgroundTransparency = 0.72; hudDivR.BorderSizePixel = 0; hudDivR.Parent = UI.topHud; track(hudDivR,"BackgroundColor3","Accent")
+    UI.pingLbl = Instance.new("TextLabel"); UI.pingLbl.Size = UDim2.new(0,76,1,0); UI.pingLbl.Position = UDim2.new(1,-76,0,0); UI.pingLbl.BackgroundTransparency = 1; UI.pingLbl.Text = "-- ms"; UI.pingLbl.Font = Enum.Font.GothamBold; UI.pingLbl.TextSize = 12; UI.pingLbl.TextXAlignment = Enum.TextXAlignment.Center; UI.pingLbl.TextColor3 = C.White; UI.pingLbl.TextStrokeTransparency = 0.15; UI.pingLbl.TextStrokeColor3 = Color3.new(0,0,0); UI.pingLbl.Parent = UI.topHud
 
-    -- Divider left
-    local hudDivL = Instance.new("Frame")
-    hudDivL.Size = UDim2.new(0,1,0,16); hudDivL.Position = UDim2.new(0,76,0.5,0); hudDivL.AnchorPoint = Vector2.new(0,0.5)
-    hudDivL.BackgroundColor3 = C.Accent; hudDivL.BackgroundTransparency = 0.72; hudDivL.BorderSizePixel = 0; hudDivL.Parent = UI.topHud
-    track(hudDivL,"BackgroundColor3","Accent")
-
-    -- Logo (centre, larger: 20x20)
-    UI.hudLogo = Instance.new("ImageButton")
-    UI.hudLogo.Size = UDim2.new(0,20,0,20)
-    UI.hudLogo.Position = UDim2.new(0.5,0,0.5,0)
-    UI.hudLogo.AnchorPoint = Vector2.new(0.5,0.5)
-    UI.hudLogo.BackgroundTransparency = 1
-    UI.hudLogo.Image = "rbxassetid://75254466518091"
-    UI.hudLogo.ZIndex = 3
-    UI.hudLogo.Parent = UI.topHud
-    -- Soft glow behind logo
-    local logoGlow = Instance.new("ImageLabel")
-    logoGlow.Size = UDim2.new(1,10,1,10); logoGlow.Position = UDim2.new(0.5,0,0.5,0); logoGlow.AnchorPoint = Vector2.new(0.5,0.5)
-    logoGlow.BackgroundTransparency = 1; logoGlow.Image = "rbxassetid://75254466518091"
-    logoGlow.ImageColor3 = C.Accent; logoGlow.ImageTransparency = 0.7; logoGlow.ZIndex = 2; logoGlow.Parent = UI.hudLogo
-    track(logoGlow,"ImageColor3","Accent")
-    S.Tween:Create(logoGlow,TweenInfo.new(1.8,Enum.EasingStyle.Sine,Enum.EasingDirection.InOut,-1,true),{ImageTransparency=0.92}):Play()
-
-    -- Divider right
-    local hudDivR = Instance.new("Frame")
-    hudDivR.Size = UDim2.new(0,1,0,16); hudDivR.Position = UDim2.new(1,-76,0.5,0); hudDivR.AnchorPoint = Vector2.new(1,0.5)
-    hudDivR.BackgroundColor3 = C.Accent; hudDivR.BackgroundTransparency = 0.72; hudDivR.BorderSizePixel = 0; hudDivR.Parent = UI.topHud
-    track(hudDivR,"BackgroundColor3","Accent")
-
-    -- Ping label (right side)
-    UI.pingLbl = Instance.new("TextLabel")
-    UI.pingLbl.Size = UDim2.new(0,76,1,0)
-    UI.pingLbl.Position = UDim2.new(1,-76,0,0)
-    UI.pingLbl.BackgroundTransparency = 1
-    UI.pingLbl.Text = "-- ms"
-    UI.pingLbl.Font = Enum.Font.GothamBold
-    UI.pingLbl.TextSize = 12
-    UI.pingLbl.TextXAlignment = Enum.TextXAlignment.Center
-    UI.pingLbl.TextColor3 = C.White
-    UI.pingLbl.TextStrokeTransparency = 0.15
-    UI.pingLbl.TextStrokeColor3 = Color3.new(0,0,0)
-    UI.pingLbl.Parent = UI.topHud
-
-    -- Logo hover/click
     UI.hudLogo.MouseEnter:Connect(function() S.Tween:Create(UI.hudLogo,TweenInfo.new(0.15),{ImageColor3=C.Accent}):Play() end)
     UI.hudLogo.MouseLeave:Connect(function() S.Tween:Create(UI.hudLogo,TweenInfo.new(0.15),{ImageColor3=Color3.new(1,1,1)}):Play() end)
-    UI.hudLogo.InputBegan:Connect(function(i)
-        if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
-            State.hDrg=true; State.hDrgSt=i.Position; State.hDrgPos=UI.topHud.Position; State.hClickTime=tick(); State.hMoved=false
-        end
-    end)
-    S.UIS.InputChanged:Connect(function(i)
-        if State.hDrg and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then
-            local d=i.Position-State.hDrgSt; if d.Magnitude>3 then State.hMoved=true end
-            UI.topHud.Position=UDim2.new(State.hDrgPos.X.Scale,State.hDrgPos.X.Offset+d.X,State.hDrgPos.Y.Scale,State.hDrgPos.Y.Offset+d.Y)
-        end
-    end)
-    S.UIS.InputEnded:Connect(function(i)
-        if State.hDrg and (i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch) then
-            State.hDrg=false
-            if not State.hMoved and (tick()-State.hClickTime)<0.25 then
-                toggleMainMenu()
-            end
-        end
-    end)
+    UI.hudLogo.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then State.hDrg=true; State.hDrgSt=i.Position; State.hDrgPos=UI.topHud.Position; State.hClickTime=tick(); State.hMoved=false end end)
+    S.UIS.InputChanged:Connect(function(i) if State.hDrg and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then local d=i.Position-State.hDrgSt; if d.Magnitude>3 then State.hMoved=true end; UI.topHud.Position=UDim2.new(State.hDrgPos.X.Scale,State.hDrgPos.X.Offset+d.X,State.hDrgPos.Y.Scale,State.hDrgPos.Y.Offset+d.Y) end end)
+    S.UIS.InputEnded:Connect(function(i) if State.hDrg and (i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch) then State.hDrg=false; if not State.hMoved and (tick()-State.hClickTime)<0.25 then toggleMainMenu() end end end)
 
-    -- HUD update loop
     S.RS.RenderStepped:Connect(function()
         State.frames=State.frames+1
         if tick()-State.lastTick>=1 then
@@ -495,11 +430,7 @@ local function LoadNaxiumHub()
         btnNo.MouseButton1Click:Connect(function() modalBg:Destroy() end)
         btnYes.MouseButton1Click:Connect(function()
             pcall(function() settings().Rendering.QualityLevel=Enum.QualityLevel.Automatic end); S.Lighting.GlobalShadows=true
-            -- Play close sound
-            pcall(function()
-                local snd=Instance.new("Sound"); snd.SoundId="rbxassetid://114792211748678"; snd.Volume=0.9; snd.Parent=S.Sound; snd:Play()
-                task.delay(3,function() pcall(function() snd:Destroy() end) end)
-            end)
+            pcall(function() local snd=Instance.new("Sound"); snd.SoundId="rbxassetid://114792211748678"; snd.Volume=0.9; snd.Parent=S.Sound; snd:Play(); task.delay(3,function() pcall(function() snd:Destroy() end) end) end)
             task.wait(0.05); UI.gui:Destroy()
         end)
     end
@@ -564,7 +495,7 @@ local function LoadNaxiumHub()
         L("Exodius  /  @ex0dius.",cc,UDim2.new(1,-20,0,14),UDim2.new(0,9,0,60),"White",Enum.TextXAlignment.Left,Enum.Font.GothamBold,11); L("Creative Director",cc,UDim2.new(1,-20,0,14),UDim2.new(0,9,0,75),"Gray",Enum.TextXAlignment.Left,Enum.Font.GothamMedium,10)
 
         local ch=mkCard(UI.HT,UDim2.new(0,W_L3,0,95),UDim2.new(0,0,0,195)); mkHdr(ch,"CHANGELOG v1.7.0",6)
-        for i,e in ipairs({{C.Green,"+","Animated open/close (main + mini)"},{C.Green,"+","Living corner outline breathing"},{C.Green,"+","Config export modal + import fix"}}) do
+        for i,e in ipairs({{C.Green,"+","Animated open/close (main + mini)"},{C.Green,"+","Config auto-saving & fix"},{C.Green,"+","Visual updates to bottom bar"}}) do
             local row=Instance.new("Frame"); row.Size=UDim2.new(1,-12,0,14); row.Position=UDim2.new(0,6,0,25+(i-1)*20); row.BackgroundTransparency=1; row.Parent=ch
             local tg=L(e[2],row,UDim2.new(0,10,1,0),UDim2.new(0,0,0,0),"Gray",Enum.TextXAlignment.Left,Enum.Font.GothamBold,11); tg.TextColor3=e[1]; L(e[3],row,UDim2.new(1,-12,1,0),UDim2.new(0,14,0,0),"Gray",Enum.TextXAlignment.Left,Enum.Font.Gotham,10).TextWrapped=true
         end
@@ -607,20 +538,15 @@ local function LoadNaxiumHub()
                 if profileLabels["grl"] then profileLabels["grl"].Text=rv>0 and rn or "None"; profileLabels["grl"].TextColor3=rv>0 and C.Green or C.White end
             end)
             backBtn.Visible=isOther
-            -- Keep outline visible while viewing another player, hide for self
-            if profCardStroke then
-                S.Tween:Create(profCardStroke,TweenInfo.new(0.2),{Transparency=isOther and 0.15 or 0.82}):Play()
-            end
+            if profCardStroke then S.Tween:Create(profCardStroke,TweenInfo.new(0.2),{Transparency=isOther and 0.15 or 0.82}):Play() end
         end
         loadProf(player,false); backBtn.MouseButton1Click:Connect(function() loadProf(player,false) end)
 
         local function buildRow(p)
             local isNX = State.knownNaxiumUserIds[p.UserId]==true
             local isMe = p==player
-            -- Row background: subtle yellow tint for NX users, blue for self
             local rowBg = isMe and Color3.fromRGB(22,38,58) or isNX and Color3.fromRGB(30,26,10) or Color3.fromRGB(18,24,34)
             local row=Instance.new("TextButton"); row.Size=UDim2.new(1,-4,0,28); row.BackgroundColor3=rowBg; row.BackgroundTransparency=0.3; row.BorderSizePixel=0; row.Text=""; row.AutoButtonColor=false; row.Parent=psf; Instance.new("UICorner",row).CornerRadius=UDim.new(0,5)
-            -- NX badge stripe on left edge
             if isNX and not isMe then
                 local nxStripe=Instance.new("Frame"); nxStripe.Size=UDim2.new(0,3,0.7,0); nxStripe.Position=UDim2.new(0,0,0.15,0); nxStripe.BackgroundColor3=C.Yellow; nxStripe.BorderSizePixel=0; nxStripe.Parent=row; Instance.new("UICorner",nxStripe).CornerRadius=UDim.new(1,0); track(nxStripe,"BackgroundColor3","Yellow")
             end
@@ -628,12 +554,10 @@ local function LoadNaxiumHub()
             row.MouseButton1Click:Connect(function() loadProf(p,not isMe) end)
             local av=Instance.new("ImageLabel"); av.Size=UDim2.new(0,20,0,20); av.Position=UDim2.new(0,6,0.5,0); av.AnchorPoint=Vector2.new(0,0.5); av.BackgroundColor3=C.Bg; av.BorderSizePixel=0; av.Parent=row; Instance.new("UICorner",av).CornerRadius=UDim.new(1,0)
             task.spawn(function() local ok2,img=pcall(function() return S.Players:GetUserThumbnailAsync(p.UserId,Enum.ThumbnailType.HeadShot,Enum.ThumbnailSize.Size48x48) end); if ok2 then av.Image=img end end)
-            -- Name label
             local nl=Instance.new("TextLabel"); nl.Size=UDim2.new(1,-130,1,0); nl.Position=UDim2.new(0,30,0,0); nl.BackgroundTransparency=1
             nl.Text = isMe and "You" or p.DisplayName
             nl.TextColor3 = isMe and C.Accent or isNX and C.Yellow or C.White
             nl.Font = (isMe or isNX) and Enum.Font.GothamBold or Enum.Font.GothamMedium; nl.TextSize=11; nl.TextXAlignment=Enum.TextXAlignment.Left; nl.TextTruncate=Enum.TextTruncate.AtEnd; nl.Parent=row; track(nl,"TextColor3", isMe and "Accent" or isNX and "Yellow" or "White")
-            -- Role label
             local rl=Instance.new("TextLabel"); rl.Size=UDim2.new(0,100,1,0); rl.Position=UDim2.new(1,-105,0,0); rl.BackgroundTransparency=1; rl.Text="..."; rl.TextColor3=C.Gray; rl.Font=Enum.Font.GothamMedium; rl.TextSize=10; rl.TextXAlignment=Enum.TextXAlignment.Right; rl.TextTruncate=Enum.TextTruncate.AtEnd; rl.Parent=row
             fetchRank(p,function(rv,rn)
                 if not row or not row.Parent then return end
@@ -661,7 +585,6 @@ local function LoadNaxiumHub()
         L("Unlock zoom distance. Uses RenderStepped to fight CoS camera reset.",camCard,UDim2.new(1,-20,0,26),UDim2.new(0,10,0,25),"Gray",Enum.TextXAlignment.Left,Enum.Font.Gotham,10)
         local camZoomEnabled=false; local camMaxDist=800
         mkTog(camCard,"Unlock Camera Distance",56,"cam_en",false,function(v) camZoomEnabled=v; if not v then pcall(function() player.CameraMaxZoomDistance=400; player.CameraMinZoomDistance=0.5 end) end end,"Cam")
-        -- Slider sits outside the card, directly below it
         local camSliderBg=Instance.new("Frame"); camSliderBg.Size=UDim2.new(0,W_HALF,0,36); camSliderBg.Position=UDim2.new(0,0,0,98); camSliderBg.BackgroundTransparency=1; camSliderBg.Parent=UI.SAT
         mkSlider(camSliderBg,"Max Zoom Distance",0,"cam_dist",400,5000,800,"%.0f",function(v) camMaxDist=v end)
         S.RS.RenderStepped:Connect(function() if camZoomEnabled then pcall(function() player.CameraMaxZoomDistance=camMaxDist; player.CameraMinZoomDistance=0.5 end) end end)
@@ -705,53 +628,38 @@ local function LoadNaxiumHub()
         mkSlider(espCard,"Max Distance",EY,"esp_maxd",50,15000,15000,"%.0fm",function(v) esp.maxDist=v end) EY=EY+40
         mkSlider(espCard,"Text Size",EY,"esp_txt",8,36,14,"%.0f",function(v) esp.textSize=v end)
 
-        -- ESP Color card (right side, top)
         local glCard=mkCard(UI.VT,UDim2.new(0,W_HALF,0,145),UDim2.new(0,W_HALF+10,0,0)); mkHdr(glCard,"ESP COLOR",6)
         local bW=210
-        -- Color swatch preview
         local glSw=Instance.new("Frame"); glSw.Size=UDim2.new(0,90,0,90); glSw.Position=UDim2.new(0,260,0,32); glSw.BackgroundColor3=esp.glowColor; glSw.BorderSizePixel=0; glSw.Parent=glCard; Instance.new("UICorner",glSw).CornerRadius=UDim.new(0,8)
         local glSwS=Instance.new("UIStroke"); glSwS.Thickness=2; glSwS.Transparency=0.45; glSwS.Color=C.White; glSwS.Parent=glSw
         local glLogo=Instance.new("ImageLabel"); glLogo.Size=UDim2.new(0.5,0,0.5,0); glLogo.Position=UDim2.new(0.5,0,0.5,0); glLogo.AnchorPoint=Vector2.new(0.5,0.5); glLogo.Image="rbxassetid://75254466518091"; glLogo.ImageTransparency=0.82; glLogo.BackgroundTransparency=1; glLogo.ScaleType=Enum.ScaleType.Fit; glLogo.Parent=glSw
 
         local gH,gS,gV=Color3.toHSV(esp.glowColor)
 
-        -- ESP Preview card (right side, below color) - simulates real ESP highlight look
         local prevCard=mkCard(UI.VT,UDim2.new(0,W_HALF,0,158),UDim2.new(0,W_HALF+10,0,155)); mkHdr(prevCard,"ESP PREVIEW",6)
-        -- Dark foggy game scene
         local prevScene=Instance.new("Frame"); prevScene.Size=UDim2.new(1,-16,0,120); prevScene.Position=UDim2.new(0,8,0,27); prevScene.BackgroundColor3=Color3.fromRGB(8,12,9); prevScene.BorderSizePixel=0; prevScene.ClipsDescendants=true; prevScene.Parent=prevCard; Instance.new("UICorner",prevScene).CornerRadius=UDim.new(0,5)
-        -- Distant trees / foliage silhouette strips
         for i,cfg in ipairs({{Color3.fromRGB(10,18,11),UDim2.new(1,0,0.45,0),UDim2.new(0,0,0.5,0)},{Color3.fromRGB(7,13,8),UDim2.new(1,0,0.3,0),UDim2.new(0,0,0.7,0)}}) do
             local bg2=Instance.new("Frame"); bg2.Size=cfg[2]; bg2.Position=cfg[3]; bg2.BackgroundColor3=cfg[1]; bg2.BorderSizePixel=0; bg2.ZIndex=1; bg2.Parent=prevScene
         end
-        -- Ground
         local prevGround=Instance.new("Frame"); prevGround.Size=UDim2.new(1,0,0.22,0); prevGround.Position=UDim2.new(0,0,0.78,0); prevGround.BackgroundColor3=Color3.fromRGB(12,19,13); prevGround.BorderSizePixel=0; prevGround.ZIndex=2; prevGround.Parent=prevScene
 
-        -- Layered glow aura (outermost, most transparent)
         local glowAura3=Instance.new("Frame"); glowAura3.Size=UDim2.new(0,58,0,86); glowAura3.Position=UDim2.new(0.5,0,0.5,-4); glowAura3.AnchorPoint=Vector2.new(0.5,0.5); glowAura3.BackgroundColor3=esp.glowColor; glowAura3.BackgroundTransparency=0.88; glowAura3.BorderSizePixel=0; glowAura3.ZIndex=3; glowAura3.Parent=prevScene; Instance.new("UICorner",glowAura3).CornerRadius=UDim.new(0,7)
         local glowAura2=Instance.new("Frame"); glowAura2.Size=UDim2.new(0,52,0,82); glowAura2.Position=UDim2.new(0.5,0,0.5,-4); glowAura2.AnchorPoint=Vector2.new(0.5,0.5); glowAura2.BackgroundColor3=esp.glowColor; glowAura2.BackgroundTransparency=0.78; glowAura2.BorderSizePixel=0; glowAura2.ZIndex=4; glowAura2.Parent=prevScene; Instance.new("UICorner",glowAura2).CornerRadius=UDim.new(0,6)
-        -- Inner fill (like Highlight FillTransparency ~0.55)
         local prevHl=Instance.new("Frame"); prevHl.Size=UDim2.new(0,44,0,76); prevHl.Position=UDim2.new(0.5,0,0.5,-4); prevHl.AnchorPoint=Vector2.new(0.5,0.5); prevHl.BackgroundColor3=esp.glowColor; prevHl.BackgroundTransparency=0.55; prevHl.BorderSizePixel=0; prevHl.ZIndex=5; prevHl.Parent=prevScene; Instance.new("UICorner",prevHl).CornerRadius=UDim.new(0,5)
-        -- Crisp outline (like Highlight OutlineTransparency ~0.05)
         local prevHlStroke=Instance.new("UIStroke"); prevHlStroke.Color=esp.glowColor; prevHlStroke.Thickness=2.5; prevHlStroke.Transparency=0.05; prevHlStroke.Parent=prevHl
-        -- Avatar (body crop inside the highlight)
         local prevAv=Instance.new("ImageLabel"); prevAv.Size=UDim2.new(1,-2,1,-2); prevAv.Position=UDim2.new(0,1,0,1); prevAv.BackgroundTransparency=1; prevAv.ScaleType=Enum.ScaleType.Crop; prevAv.ZIndex=6; prevAv.ImageTransparency=0.15; prevAv.Parent=prevHl; Instance.new("UICorner",prevAv).CornerRadius=UDim.new(0,4)
 
-        -- Pulsing glow animation on auras
         S.Tween:Create(glowAura3,TweenInfo.new(1.4,Enum.EasingStyle.Sine,Enum.EasingDirection.InOut,-1,true),{BackgroundTransparency=0.94}):Play()
         S.Tween:Create(glowAura2,TweenInfo.new(1.4,Enum.EasingStyle.Sine,Enum.EasingDirection.InOut,-1,true),{BackgroundTransparency=0.84}):Play()
 
-        -- Name label (above player, with text stroke like real BillboardGui)
         local prevNameLbl=Instance.new("TextLabel"); prevNameLbl.Size=UDim2.new(1,-10,0,14); prevNameLbl.Position=UDim2.new(0.5,0,0,6); prevNameLbl.AnchorPoint=Vector2.new(0.5,0); prevNameLbl.BackgroundTransparency=1; prevNameLbl.Text="PlayerName"; prevNameLbl.TextColor3=Color3.new(1,1,1); prevNameLbl.Font=Enum.Font.GothamBold; prevNameLbl.TextSize=11; prevNameLbl.TextStrokeTransparency=0.1; prevNameLbl.TextStrokeColor3=Color3.new(0,0,0); prevNameLbl.TextXAlignment=Enum.TextXAlignment.Center; prevNameLbl.ZIndex=8; prevNameLbl.Parent=prevScene; prevNameLbl.TextTruncate=Enum.TextTruncate.AtEnd
-        -- Distance label
         local prevDistLbl=Instance.new("TextLabel"); prevDistLbl.Size=UDim2.new(1,-10,0,11); prevDistLbl.Position=UDim2.new(0.5,0,0,20); prevDistLbl.AnchorPoint=Vector2.new(0.5,0); prevDistLbl.BackgroundTransparency=1; prevDistLbl.Text="142m"; prevDistLbl.TextColor3=Color3.fromRGB(180,220,255); prevDistLbl.Font=Enum.Font.GothamMedium; prevDistLbl.TextSize=10; prevDistLbl.TextStrokeTransparency=0.2; prevDistLbl.TextStrokeColor3=Color3.new(0,0,0); prevDistLbl.TextXAlignment=Enum.TextXAlignment.Center; prevDistLbl.ZIndex=8; prevDistLbl.Parent=prevScene
 
-        -- Load a random other player's avatar
         task.spawn(function()
             local others={}; for _,p in ipairs(S.Players:GetPlayers()) do if p~=player then table.insert(others,p) end end
             local target=#others>0 and others[math.random(1,#others)] or player
             local ok2,img=pcall(function() return S.Players:GetUserThumbnailAsync(target.UserId,Enum.ThumbnailType.AvatarBust,Enum.ThumbnailSize.Size100x100) end)
             if ok2 then prevAv.Image=img end
-            -- Truncate name to fit
             local nm=target.DisplayName; prevNameLbl.Text=nm.." (@"..target.Name..")"
         end)
 
@@ -772,7 +680,6 @@ local function LoadNaxiumHub()
             tBar(bf,0,bW,eVals[jj],eKeys[jj],eVals[jj],function(v) if jj==1 then gH=v elseif jj==2 then gS=v else gV=v end; updGlow() end); GY2=GY2+30
         end
 
-        -- Also update preview name label size when text size slider changes
         local origSliderCb = nil
         for _,el in ipairs(State.ConfigElements) do
             if el.key=="esp_txt" then
@@ -780,7 +687,6 @@ local function LoadNaxiumHub()
             end
         end
 
-        -- ESP logic
         local function getRoot(p) local c=p.Character; if not c then return nil end; return c:FindFirstChild("HumanoidRootPart") or c.PrimaryPart end
         local function setupESP(p)
             local hl=Instance.new("Highlight"); hl.FillTransparency=0.55; hl.OutlineTransparency=0.05; hl.FillColor=esp.glowColor; hl.OutlineColor=esp.glowColor; hl.Enabled=false
@@ -825,7 +731,6 @@ local function LoadNaxiumHub()
     do
         UI.THT.ZIndex=50
 
-        -- Scrollable left wrapper
         local thtLeftScroll=Instance.new("ScrollingFrame")
         thtLeftScroll.Size=UDim2.new(0,W_HALF,1,0); thtLeftScroll.Position=UDim2.new(0,0,0,0)
         thtLeftScroll.BackgroundTransparency=1; thtLeftScroll.BorderSizePixel=0
@@ -833,7 +738,6 @@ local function LoadNaxiumHub()
         thtLeftScroll.CanvasSize=UDim2.new(0,0,0,400); thtLeftScroll.ClipsDescendants=true
         thtLeftScroll.Parent=UI.THT; track(thtLeftScroll,"ScrollBarImageColor3","Accent")
 
-        -- Background image card
         local THT_L=mkCard(thtLeftScroll,UDim2.new(0,W_HALF-20,0,185),UDim2.new(0,0,0,0)); mkHdr(THT_L,"BACKGROUND IMAGE",6)
         local bgThemes={{name="Naxius Theme",id="97654622883467"},{name="Samurai",id="80311829005401"}}
         local openBgBtn=Instance.new("TextButton"); openBgBtn.Size=UDim2.new(1,-20,0,24); openBgBtn.Position=UDim2.new(0,10,0,30); openBgBtn.BackgroundColor3=C.Accent; openBgBtn.BackgroundTransparency=0.35; openBgBtn.BorderSizePixel=0; openBgBtn.Text="None  v"; openBgBtn.Font=Enum.Font.GothamBold; openBgBtn.TextSize=11; openBgBtn.TextColor3=Color3.new(1,1,1); openBgBtn.Parent=THT_L; Instance.new("UICorner",openBgBtn).CornerRadius=UDim.new(0,5)
@@ -853,20 +757,16 @@ local function LoadNaxiumHub()
             end
         end)
         mkSlider(THT_L,"Image Opacity",62,"bg_op",0,1,0.88,"%.2f",function(v) UI.bgImg.ImageTransparency=1-v end)
-        -- Custom ID input (narrower to leave room for Save + ?)
+        
         local customImgBox=Instance.new("TextBox"); customImgBox.Size=UDim2.new(1,-76,0,26); customImgBox.Position=UDim2.new(0,10,0,108); customImgBox.BackgroundColor3=Color3.fromRGB(12,16,24); customImgBox.BackgroundTransparency=0.2; customImgBox.BorderSizePixel=0; customImgBox.PlaceholderText="Paste Image ID here..."; customImgBox.Text=""; customImgBox.Font=Enum.Font.GothamMedium; customImgBox.TextSize=10; customImgBox.TextColor3=C.White; customImgBox.PlaceholderColor3=C.Gray; customImgBox.ClearTextOnFocus=false; customImgBox.Parent=THT_L; Instance.new("UICorner",customImgBox).CornerRadius=UDim.new(0,5)
         local cpad2=Instance.new("UIPadding"); cpad2.PaddingLeft=UDim.new(0,8); cpad2.Parent=customImgBox; local cboxStr=Instance.new("UIStroke"); cboxStr.Thickness=1; cboxStr.Transparency=0.7; cboxStr.Parent=customImgBox; track(cboxStr,"Color","Accent")
-        -- Save image button (right of input, left of ?)
         local saveImgBtn=Instance.new("TextButton"); saveImgBtn.Size=UDim2.new(0,36,0,26); saveImgBtn.Position=UDim2.new(1,-62,0,108); saveImgBtn.BackgroundColor3=C.Accent; saveImgBtn.BackgroundTransparency=0.25; saveImgBtn.BorderSizePixel=0; saveImgBtn.Text="Save"; saveImgBtn.Font=Enum.Font.GothamBold; saveImgBtn.TextSize=10; saveImgBtn.TextColor3=Color3.new(1,1,1); saveImgBtn.Parent=THT_L; Instance.new("UICorner",saveImgBtn).CornerRadius=UDim.new(0,5); track(saveImgBtn,"BackgroundColor3","Accent")
         saveImgBtn.MouseEnter:Connect(function() S.Tween:Create(saveImgBtn,TweenInfo.new(0.1),{BackgroundTransparency=0}):Play() end); saveImgBtn.MouseLeave:Connect(function() S.Tween:Create(saveImgBtn,TweenInfo.new(0.1),{BackgroundTransparency=0.25}):Play() end)
-        -- ? help button (rightmost, no overlap)
         local helpBtn=Instance.new("TextButton"); helpBtn.Size=UDim2.new(0,20,0,26); helpBtn.Position=UDim2.new(1,-22,0,108); helpBtn.BackgroundTransparency=1; helpBtn.Text="?"; helpBtn.Font=Enum.Font.GothamBold; helpBtn.TextSize=12; helpBtn.TextColor3=C.Accent; helpBtn.ZIndex=51; helpBtn.Parent=THT_L
-        -- Floating tooltip that follows mouse and appears ABOVE cursor
         local helpPopup=Instance.new("Frame"); helpPopup.Size=UDim2.new(0,260,0,72); helpPopup.BackgroundColor3=C.DkBg; helpPopup.BorderSizePixel=0; helpPopup.Visible=false; helpPopup.ZIndex=200; helpPopup.Parent=UI.gui; Instance.new("UICorner",helpPopup).CornerRadius=UDim.new(0,7); local helpStr=Instance.new("UIStroke"); helpStr.Thickness=1.5; helpStr.ZIndex=200; helpStr.Parent=helpPopup; track(helpStr,"Color","Accent")
         local helpTxt=Instance.new("TextLabel"); helpTxt.Size=UDim2.new(1,-14,1,-10); helpTxt.Position=UDim2.new(0,7,0,5); helpTxt.BackgroundTransparency=1; helpTxt.RichText=true
         helpTxt.Text="<b>Image ID vs Decal ID</b>\nRoblox images have two different IDs. You need the <b>Image ID</b>, not the Decal ID shown in the URL.\n<font color=\"#7fa8d4\">Tip: Install BTRoblox to find Image IDs easily.</font>"
         helpTxt.Font=Enum.Font.GothamMedium; helpTxt.TextSize=10; helpTxt.TextColor3=C.White; helpTxt.TextWrapped=true; helpTxt.ZIndex=201; helpTxt.TextXAlignment=Enum.TextXAlignment.Left; helpTxt.TextYAlignment=Enum.TextYAlignment.Top; helpTxt.Parent=helpPopup
-        -- Track mouse to position tooltip above cursor
         local helpMoveConn
         helpBtn.MouseEnter:Connect(function()
             helpPopup.Visible=true; helpBtn.TextColor3=C.White
@@ -875,7 +775,6 @@ local function LoadNaxiumHub()
                     helpPopup.Position=UDim2.new(0,i.Position.X+10,0,i.Position.Y-helpPopup.AbsoluteSize.Y-12)
                 end
             end)
-            -- Set initial position above current mouse
             local mp=S.UIS:GetMouseLocation()
             helpPopup.Position=UDim2.new(0,mp.X+10,0,mp.Y-helpPopup.AbsoluteSize.Y-12)
         end)
@@ -883,7 +782,7 @@ local function LoadNaxiumHub()
             helpPopup.Visible=false; helpBtn.TextColor3=C.Accent
             if helpMoveConn then helpMoveConn:Disconnect(); helpMoveConn=nil end
         end)
-        -- Saved images list
+        
         mkDiv(THT_L,142,1); L("SAVED",THT_L,UDim2.new(1,-14,0,11),UDim2.new(0,10,0,147),"Accent",Enum.TextXAlignment.Left,Enum.Font.GothamBold,9)
         local savedImgScroll=Instance.new("ScrollingFrame"); savedImgScroll.Size=UDim2.new(1,-14,0,28); savedImgScroll.Position=UDim2.new(0,7,0,160); savedImgScroll.BackgroundTransparency=1; savedImgScroll.BorderSizePixel=0; savedImgScroll.ScrollBarThickness=2; savedImgScroll.ScrollBarImageColor3=C.Accent; savedImgScroll.CanvasSize=UDim2.new(0,0,0,0); savedImgScroll.AutomaticCanvasSize=Enum.AutomaticSize.X; savedImgScroll.ScrollingDirection=Enum.ScrollingDirection.X; savedImgScroll.ClipsDescendants=true; savedImgScroll.Parent=THT_L
         local savedImgLL=Instance.new("UIListLayout"); savedImgLL.FillDirection=Enum.FillDirection.Horizontal; savedImgLL.Padding=UDim.new(0,5); savedImgLL.VerticalAlignment=Enum.VerticalAlignment.Center; savedImgLL.Parent=savedImgScroll
@@ -913,7 +812,6 @@ local function LoadNaxiumHub()
             table.insert(_G.NaxiumSavedImages,{name="img"..(#_G.NaxiumSavedImages+1),id=id}); persistSavedImages(); refreshSavedImages(); saveImgBtn.Text="Done!"; task.delay(1.2,function() saveImgBtn.Text="Save" end)
         end)
 
-        -- Custom Theme Builder card (in scroll, below bg image)
         local ctCard=mkCard(thtLeftScroll,UDim2.new(0,W_HALF-20,0,152),UDim2.new(0,0,0,195)); mkHdr(ctCard,"CUSTOM THEME BUILDER",6)
         L("Drag the R/G/B bars to change each colour.",ctCard,UDim2.new(1,-14,0,12),UDim2.new(0,7,0,22),"Gray",Enum.TextXAlignment.Left,Enum.Font.Gotham,9)
         local colorSlots={{label="Accent",key="Accent"},{label="BG",key="Bg"},{label="Card",key="Card"},{label="Tab",key="Tab"}}
@@ -933,7 +831,6 @@ local function LoadNaxiumHub()
             CTY=CTY+24
         end
 
-        -- Preset Themes (right side, unchanged)
         local preCard2=mkCard(UI.THT,UDim2.new(0,W_HALF,0,310),UDim2.new(0,W_HALF+10,0,0)); mkHdr(preCard2,"PRESET THEMES",6)
         local rainbowCon=nil
         setRainbow=function(active,soft)
@@ -959,20 +856,40 @@ local function LoadNaxiumHub()
             local nl5=Instance.new("TextLabel"); nl5.Size=UDim2.new(1,-36,1,0); nl5.Position=UDim2.new(0,20,0,0); nl5.BackgroundTransparency=1; nl5.Text=pr.n; nl5.Font=Enum.Font.GothamMedium; nl5.TextSize=11; nl5.TextColor3=pr.txt; nl5.TextXAlignment=Enum.TextXAlignment.Left; nl5.Parent=pb
             pb.MouseEnter:Connect(function() S.Tween:Create(pb,TweenInfo.new(0.12),{BackgroundTransparency=0.35}):Play() end); pb.MouseLeave:Connect(function() S.Tween:Create(pb,TweenInfo.new(0.12),{BackgroundTransparency=0}):Play() end)
             pb.MouseButton1Click:Connect(function()
-                if pr.rb then setRainbow(true,pr.soft); C.Bg=pr.bg else setRainbow(false); C.Bg=pr.bg; C.Accent=pr.ac end
+                if pr.rb then 
+                    sv("tc_rb", true); sv("tc_rb_soft", pr.soft)
+                    setRainbow(true,pr.soft); C.Bg=pr.bg 
+                else 
+                    sv("tc_rb", false)
+                    setRainbow(false); C.Bg=pr.bg; C.Accent=pr.ac 
+                end
                 C.White=pr.txt; C.Gray=pr.gry
                 local r2,g2,b2=pr.bg.R*255,pr.bg.G*255,pr.bg.B*255
                 C.DkBg=Color3.fromRGB(math.floor(r2*0.62),math.floor(g2*0.62),math.floor(b2*0.62)); C.Card=Color3.fromRGB(math.floor(r2*0.82),math.floor(g2*0.82),math.floor(b2*0.82)); C.Tab=Color3.fromRGB(math.clamp(math.floor(r2+12),0,255),math.clamp(math.floor(g2+15),0,255),math.clamp(math.floor(b2+20),0,255))
                 for k,v in pairs(C) do sv("tc_"..k,v) end; applyTheme()
             end)
         end
+        
+        table.insert(State.ConfigElements, {key="tc_rb", default=false, update=function(v) 
+            if v then setRainbow(true, ld("tc_rb_soft", false)) else setRainbow(false) end 
+        end})
+        table.insert(State.ConfigElements, {key="tc_rb_soft", default=false, update=function(v) end})
     end
 
     -- ============================================================
-    -- CONFIG TAB  (improved UX, duplicate, clearer labels)
+    -- CONFIG TAB
     -- ============================================================
     do
-        -- Left side: actions
+        local _lastLoaded=""
+        pcall(function() if isfile and isfile("NaxiumHub/autoload.txt") then _lastLoaded=readfile("NaxiumHub/autoload.txt") end end)
+
+        autoSaveConfig = function()
+            if _lastLoaded ~= "" then
+                local json=encodeData(State.saveData)
+                pcall(function() writefile("NaxiumHub/Configs/".._lastLoaded..".json",json) end)
+            end
+        end
+
         local cfgCreateCard=mkCard(UI.CFG,UDim2.new(0,W_HALF,0,260),UDim2.new(0,0,0,0)); mkHdr(cfgCreateCard,"SAVE CONFIG",6)
         L("Give this config a name and hit Save.",cfgCreateCard,UDim2.new(1,-14,0,13),UDim2.new(0,7,0,26),"Gray",Enum.TextXAlignment.Left,Enum.Font.Gotham,10)
         local cfgBox=Instance.new("TextBox"); cfgBox.Size=UDim2.new(1,-16,0,30); cfgBox.Position=UDim2.new(0,8,0,48); cfgBox.BackgroundColor3=Color3.fromRGB(12,16,24); cfgBox.BackgroundTransparency=0.2; cfgBox.BorderSizePixel=0; cfgBox.Text=""; cfgBox.PlaceholderText="Config name..."; cfgBox.Font=Enum.Font.GothamMedium; cfgBox.TextSize=12; cfgBox.TextColor3=C.White; cfgBox.PlaceholderColor3=C.Gray; cfgBox.ClearTextOnFocus=false; cfgBox.Parent=cfgCreateCard; Instance.new("UICorner",cfgBox).CornerRadius=UDim.new(0,6)
@@ -982,35 +899,28 @@ local function LoadNaxiumHub()
 
         mkDiv(cfgCreateCard,128,1)
 
-        -- Share: copies current settings to clipboard so another player can paste them
         local function makeActionBtn(parent, y, text, subtext, col, bordCol)
             local btn=Instance.new("TextButton"); btn.Size=UDim2.new(1,-16,0,32); btn.Position=UDim2.new(0,8,0,y); btn.BackgroundColor3=Color3.fromRGB(14,20,32); btn.BackgroundTransparency=0.22; btn.BorderSizePixel=0; btn.Text=""; btn.Parent=parent; Instance.new("UICorner",btn).CornerRadius=UDim.new(0,6)
             local bs=Instance.new("UIStroke"); bs.Thickness=1; bs.Transparency=0.58; bs.Color=bordCol or C.Accent; bs.Parent=btn
             L(text,btn,UDim2.new(1,-16,0,17),UDim2.new(0,10,0,4),col or "Accent",Enum.TextXAlignment.Left,Enum.Font.GothamBold,11)
             L(subtext,btn,UDim2.new(1,-16,0,13),UDim2.new(0,10,0,18),"Gray",Enum.TextXAlignment.Left,Enum.Font.Gotham,9)
             btn.MouseEnter:Connect(function() S.Tween:Create(btn,TweenInfo.new(0.1),{BackgroundTransparency=0.05}):Play() end); btn.MouseLeave:Connect(function() S.Tween:Create(btn,TweenInfo.new(0.1),{BackgroundTransparency=0.22}):Play() end)
-            return btn, L("",btn,UDim2.new(0,0,1,0),UDim2.new(0,0,0,0),"Gray",Enum.TextXAlignment.Left,Enum.Font.Gotham,0) -- invisible status label
+            return btn, L("",btn,UDim2.new(0,0,1,0),UDim2.new(0,0,0,0),"Gray",Enum.TextXAlignment.Left,Enum.Font.Gotham,0)
         end
 
-        -- Share modal helper - opens a popup with the config string in a selectable box
         local function openShareModal(json)
-            local modal=Instance.new("Frame"); modal.Size=UDim2.new(1,0,1,0); modal.BackgroundColor3=Color3.new(0,0,0); modal.BackgroundTransparency=0.45; modal.ZIndex=500; modal.Parent=UI.mf
+            local modal=Instance.new("Frame"); modal.Size=UDim2.new(1,0,1,0); modal.BackgroundColor3=Color3.new(0,0,0); modal.BackgroundTransparency=0.45; modal.ZIndex=500; modal.Parent=UI.mf; modal.Active=true
             local box=Instance.new("Frame"); box.Size=UDim2.new(0,460,0,200); box.Position=UDim2.new(0.5,0,0.5,0); box.AnchorPoint=Vector2.new(0.5,0.5); box.BackgroundColor3=C.DkBg; box.BorderSizePixel=0; box.ZIndex=501; box.Parent=modal; track(box,"BackgroundColor3","DkBg"); Instance.new("UICorner",box).CornerRadius=UDim.new(0,10)
             local bStr=Instance.new("UIStroke"); bStr.Thickness=1.5; bStr.Transparency=0.35; bStr.ZIndex=501; bStr.Parent=box; track(bStr,"Color","Accent")
             L("Export Config",box,UDim2.new(1,-40,0,20),UDim2.new(0,16,0,12),"White",Enum.TextXAlignment.Left,Enum.Font.GothamBold,14)
             L("Copy the string below and share it — paste it into Naxium's Import field to apply.",box,UDim2.new(1,-32,0,26),UDim2.new(0,16,0,34),"Gray",Enum.TextXAlignment.Left,Enum.Font.GothamMedium,10).TextWrapped=true
-            -- Scrollable text display (not editable, but selectable via a read-only TextBox)
             local scrollF=Instance.new("Frame"); scrollF.Size=UDim2.new(1,-32,0,76); scrollF.Position=UDim2.new(0,16,0,70); scrollF.BackgroundColor3=Color3.fromRGB(7,10,16); scrollF.BackgroundTransparency=0.1; scrollF.BorderSizePixel=0; scrollF.ZIndex=502; scrollF.Parent=box; Instance.new("UICorner",scrollF).CornerRadius=UDim.new(0,6)
             local sStr=Instance.new("UIStroke"); sStr.Thickness=1; sStr.Transparency=0.72; sStr.ZIndex=502; sStr.Parent=scrollF; track(sStr,"Color","Accent")
             local tb=Instance.new("TextBox"); tb.Size=UDim2.new(1,-12,1,-8); tb.Position=UDim2.new(0,6,0,4); tb.BackgroundTransparency=1; tb.Text=json; tb.Font=Enum.Font.RobotoMono; tb.TextSize=9; tb.TextColor3=C.Accent; tb.TextXAlignment=Enum.TextXAlignment.Left; tb.TextYAlignment=Enum.TextYAlignment.Top; tb.TextWrapped=true; tb.MultiLine=true; tb.ClearTextOnFocus=false; tb.ZIndex=503; tb.Parent=scrollF; track(tb,"TextColor3","Accent")
-            -- Copy button
             local copyBtn=Instance.new("TextButton"); copyBtn.Size=UDim2.new(0.5,-10,0,30); copyBtn.Position=UDim2.new(0,16,0,158); copyBtn.BackgroundColor3=C.Accent; copyBtn.BackgroundTransparency=0.1; copyBtn.BorderSizePixel=0; copyBtn.Text="Copy to Clipboard"; copyBtn.Font=Enum.Font.GothamBold; copyBtn.TextSize=11; copyBtn.TextColor3=Color3.new(1,1,1); copyBtn.ZIndex=502; copyBtn.Parent=box; Instance.new("UICorner",copyBtn).CornerRadius=UDim.new(0,6); track(copyBtn,"BackgroundColor3","Accent")
             copyBtn.MouseButton1Click:Connect(function() pcall(function() setclipboard(json) end); copyBtn.Text="Copied!"; copyBtn.BackgroundColor3=C.Green; task.delay(1.5,function() copyBtn.Text="Copy to Clipboard"; track(copyBtn,"BackgroundColor3","Accent") end) end)
-            -- Close button
             local closeBtn=Instance.new("TextButton"); closeBtn.Size=UDim2.new(0.5,-10,0,30); closeBtn.Position=UDim2.new(0.5,4,0,158); closeBtn.BackgroundColor3=Color3.fromRGB(18,24,34); closeBtn.BackgroundTransparency=0.2; closeBtn.BorderSizePixel=0; closeBtn.Text="Close"; closeBtn.Font=Enum.Font.GothamBold; closeBtn.TextSize=11; closeBtn.TextColor3=C.Gray; closeBtn.ZIndex=502; closeBtn.Parent=box; Instance.new("UICorner",closeBtn).CornerRadius=UDim.new(0,6)
             closeBtn.MouseButton1Click:Connect(function() modal:Destroy() end)
-            
-            modal.Active = true -- absorb clicks
         end
 
         local cfgShareBtn,_ = makeActionBtn(cfgCreateCard,136,"Export Config","Opens a shareable string you can post in Discord",C.Accent)
@@ -1022,21 +932,47 @@ local function LoadNaxiumHub()
         local cfgReceiveBtn,_ = makeActionBtn(cfgCreateCard,178,"Import from Clipboard","Paste a config string to apply its settings",C.Green,C.Green)
         cfgReceiveBtn.MouseButton1Click:Connect(function()
             local clip=""
-            pcall(function() clip=getclipboard() end)
-            -- Find the subtitle label (second TextLabel child)
+            local success = pcall(function() clip=tostring(getclipboard()) end)
+            
             local subLbl=nil
             local lbls={}; for _,c in ipairs(cfgReceiveBtn:GetChildren()) do if c:IsA("TextLabel") then table.insert(lbls,c) end end
             if #lbls>=2 then subLbl=lbls[2] end
-            local function setStatus(msg,col,dur)
-                if subLbl then subLbl.Text=msg; subLbl.TextColor3=col end
-                task.delay(dur or 2.5,function() if subLbl then subLbl.Text="Paste a config string to apply its settings"; subLbl.TextColor3=C.Gray end end)
+
+            if success and clip~="" and clip~="nil" then
+                local data=decodeData(clip)
+                if next(data) then
+                    for k,v in pairs(data) do State.saveData[k]=v end
+                    for _,el in ipairs(State.ConfigElements) do pcall(function() el.update(State.saveData[el.key]) end) end
+                    if subLbl then subLbl.Text="Imported successfully!"; subLbl.TextColor3=C.Green; task.delay(3,function() subLbl.Text="Paste a config string to apply its settings"; subLbl.TextColor3=C.Gray end) end
+                    return
+                end
             end
-            if clip=="" then setStatus("Clipboard is empty.",C.Red); return end
-            local data=decodeData(clip)
-            if not next(data) then setStatus("Not a valid Naxium config string.",C.Red); return end
-            for k,v in pairs(data) do State.saveData[k]=v end
-            for _,el in ipairs(State.ConfigElements) do pcall(function() el.update(State.saveData[el.key]) end) end
-            setStatus("Imported successfully!",C.Green,3)
+            
+            -- Manual Paste Fallback Modal
+            local modal=Instance.new("Frame"); modal.Size=UDim2.new(1,0,1,0); modal.BackgroundColor3=Color3.new(0,0,0); modal.BackgroundTransparency=0.45; modal.ZIndex=500; modal.Parent=UI.mf; modal.Active=true
+            local box=Instance.new("Frame"); box.Size=UDim2.new(0,460,0,200); box.Position=UDim2.new(0.5,0,0.5,0); box.AnchorPoint=Vector2.new(0.5,0.5); box.BackgroundColor3=C.DkBg; box.BorderSizePixel=0; box.ZIndex=501; box.Parent=modal; track(box,"BackgroundColor3","DkBg"); Instance.new("UICorner",box).CornerRadius=UDim.new(0,10)
+            local bStr=Instance.new("UIStroke"); bStr.Thickness=1.5; bStr.Transparency=0.35; bStr.ZIndex=501; bStr.Parent=box; track(bStr,"Color","Accent")
+            L("Manual Import",box,UDim2.new(1,-40,0,20),UDim2.new(0,16,0,12),"White",Enum.TextXAlignment.Left,Enum.Font.GothamBold,14)
+            L("Your executor blocked the clipboard. Paste the string below:",box,UDim2.new(1,-32,0,26),UDim2.new(0,16,0,34),"Gray",Enum.TextXAlignment.Left,Enum.Font.GothamMedium,10).TextWrapped=true
+            local scrollF=Instance.new("Frame"); scrollF.Size=UDim2.new(1,-32,0,76); scrollF.Position=UDim2.new(0,16,0,70); scrollF.BackgroundColor3=Color3.fromRGB(7,10,16); scrollF.BackgroundTransparency=0.1; scrollF.BorderSizePixel=0; scrollF.ZIndex=502; scrollF.Parent=box; Instance.new("UICorner",scrollF).CornerRadius=UDim.new(0,6)
+            local sStr=Instance.new("UIStroke"); sStr.Thickness=1; sStr.Transparency=0.72; sStr.ZIndex=502; sStr.Parent=scrollF; track(sStr,"Color","Accent")
+            local tb=Instance.new("TextBox"); tb.Size=UDim2.new(1,-12,1,-8); tb.Position=UDim2.new(0,6,0,4); tb.BackgroundTransparency=1; tb.Text=""; tb.PlaceholderText="Click here and press Ctrl+V to paste config..."; tb.Font=Enum.Font.RobotoMono; tb.TextSize=9; tb.TextColor3=C.Accent; tb.TextXAlignment=Enum.TextXAlignment.Left; tb.TextYAlignment=Enum.TextYAlignment.Top; tb.TextWrapped=true; tb.MultiLine=true; tb.ClearTextOnFocus=false; tb.ZIndex=503; tb.Parent=scrollF; track(tb,"TextColor3","Accent")
+            local importBtn=Instance.new("TextButton"); importBtn.Size=UDim2.new(0.5,-10,0,30); importBtn.Position=UDim2.new(0,16,0,158); importBtn.BackgroundColor3=C.Green; importBtn.BackgroundTransparency=0.1; importBtn.BorderSizePixel=0; importBtn.Text="Apply Config"; importBtn.Font=Enum.Font.GothamBold; importBtn.TextSize=11; importBtn.TextColor3=Color3.new(1,1,1); importBtn.ZIndex=502; importBtn.Parent=box; Instance.new("UICorner",importBtn).CornerRadius=UDim.new(0,6)
+            local closeBtn=Instance.new("TextButton"); closeBtn.Size=UDim2.new(0.5,-10,0,30); closeBtn.Position=UDim2.new(0.5,4,0,158); closeBtn.BackgroundColor3=Color3.fromRGB(18,24,34); closeBtn.BackgroundTransparency=0.2; closeBtn.BorderSizePixel=0; closeBtn.Text="Cancel"; closeBtn.Font=Enum.Font.GothamBold; closeBtn.TextSize=11; closeBtn.TextColor3=C.Gray; closeBtn.ZIndex=502; closeBtn.Parent=box; Instance.new("UICorner",closeBtn).CornerRadius=UDim.new(0,6)
+            
+            importBtn.MouseButton1Click:Connect(function()
+                local d = decodeData(tb.Text)
+                if next(d) then
+                    for k,v in pairs(d) do State.saveData[k]=v end
+                    for _,el in ipairs(State.ConfigElements) do pcall(function() el.update(State.saveData[el.key]) end) end
+                    modal:Destroy()
+                    if subLbl then subLbl.Text="Imported successfully!"; subLbl.TextColor3=C.Green; task.delay(3,function() subLbl.Text="Paste a config string to apply its settings"; subLbl.TextColor3=C.Gray end) end
+                else
+                    importBtn.Text="Invalid String!"; importBtn.BackgroundColor3=C.Red
+                    task.delay(1.5, function() importBtn.Text="Apply Config"; importBtn.BackgroundColor3=C.Green end)
+                end
+            end)
+            closeBtn.MouseButton1Click:Connect(function() modal:Destroy() end)
         end)
 
         local cfgResetBtn,_ = makeActionBtn(cfgCreateCard,220,"Reset All to Default","Clears every toggle and slider back to its original value",C.Red,C.Red)
@@ -1046,23 +982,16 @@ local function LoadNaxiumHub()
             local sub=cfgResetBtn:GetChildren()[2]; if sub and sub:IsA("TextLabel") then sub.Text="Done! All settings reset."; sub.TextColor3=C.Yellow; task.delay(2,function() sub.Text="Clears every toggle and slider back to its original value"; sub.TextColor3=C.Gray end) end
         end)
 
-        -- Right side: saved configs list
         local cfgListCard=mkCard(UI.CFG,UDim2.new(0,W_HALF,0,310),UDim2.new(0,W_HALF+10,0,0))
         L("SAVED CONFIGS",cfgListCard,UDim2.new(0,110,0,13),UDim2.new(0,10,0,6),"Accent",Enum.TextXAlignment.Left,Enum.Font.GothamBold,10)
-        -- Count badge
         local cfgCountBadge=Instance.new("Frame"); cfgCountBadge.Size=UDim2.new(0,22,0,14); cfgCountBadge.Position=UDim2.new(1,-30,0,7); cfgCountBadge.BackgroundColor3=C.Accent; cfgCountBadge.BackgroundTransparency=0.3; cfgCountBadge.BorderSizePixel=0; cfgCountBadge.Parent=cfgListCard; Instance.new("UICorner",cfgCountBadge).CornerRadius=UDim.new(1,0); track(cfgCountBadge,"BackgroundColor3","Accent")
         local cfgCountLbl=Instance.new("TextLabel"); cfgCountLbl.Size=UDim2.new(1,0,1,0); cfgCountLbl.BackgroundTransparency=1; cfgCountLbl.Text="0"; cfgCountLbl.TextColor3=Color3.new(1,1,1); cfgCountLbl.Font=Enum.Font.GothamBold; cfgCountLbl.TextSize=9; cfgCountLbl.Parent=cfgCountBadge
 
-        -- Search
         local cfgSearch=Instance.new("TextBox"); cfgSearch.Size=UDim2.new(1,-16,0,22); cfgSearch.Position=UDim2.new(0,8,0,28); cfgSearch.BackgroundColor3=Color3.fromRGB(10,14,20); cfgSearch.BackgroundTransparency=0.2; cfgSearch.BorderSizePixel=0; cfgSearch.PlaceholderText="Search configs..."; cfgSearch.Text=""; cfgSearch.Font=Enum.Font.GothamMedium; cfgSearch.TextSize=10; cfgSearch.TextColor3=C.White; cfgSearch.PlaceholderColor3=C.Gray; cfgSearch.ClearTextOnFocus=false; cfgSearch.Parent=cfgListCard; Instance.new("UICorner",cfgSearch).CornerRadius=UDim.new(0,5)
         local spad=Instance.new("UIPadding"); spad.PaddingLeft=UDim.new(0,8); spad.Parent=cfgSearch; local searchStr=Instance.new("UIStroke"); searchStr.Thickness=1; searchStr.Transparency=0.72; searchStr.Parent=cfgSearch; track(searchStr,"Color","Accent")
-        -- Last loaded
         local lastLoadedLbl=L("",cfgListCard,UDim2.new(1,-14,0,11),UDim2.new(0,7,0,54),"Gray",Enum.TextXAlignment.Left,Enum.Font.GothamMedium,9)
-        -- Scroll
         local cfgScroll=Instance.new("ScrollingFrame"); cfgScroll.Size=UDim2.new(1,-10,0,236); cfgScroll.Position=UDim2.new(0,5,0,66); cfgScroll.BackgroundTransparency=1; cfgScroll.BorderSizePixel=0; cfgScroll.ScrollBarThickness=2; cfgScroll.ScrollBarImageColor3=C.Accent; cfgScroll.CanvasSize=UDim2.new(0,0,0,0); cfgScroll.AutomaticCanvasSize=Enum.AutomaticSize.Y; cfgScroll.ClipsDescendants=true; cfgScroll.Parent=cfgListCard
         local cfgLL=Instance.new("UIListLayout"); cfgLL.Padding=UDim.new(0,4); cfgLL.Parent=cfgScroll
-
-        local _lastLoaded=""
 
         local function getConfigs()
             local list={}
@@ -1087,11 +1016,8 @@ local function LoadNaxiumHub()
                     local xOff=isActive and 14 or 10
                     L(name,row,UDim2.new(1,-148,0,20),UDim2.new(0,xOff,0,8),"White",Enum.TextXAlignment.Left,Enum.Font.GothamBold,11)
 
-                    -- Load btn
                     local lBtn=Instance.new("TextButton"); lBtn.Size=UDim2.new(0,44,0,22); lBtn.Position=UDim2.new(1,-142,0.5,0); lBtn.AnchorPoint=Vector2.new(0,0.5); lBtn.BackgroundColor3=C.Accent; lBtn.BackgroundTransparency=0.2; lBtn.BorderSizePixel=0; lBtn.Text="Load"; lBtn.Font=Enum.Font.GothamBold; lBtn.TextSize=10; lBtn.TextColor3=Color3.new(1,1,1); lBtn.Parent=row; Instance.new("UICorner",lBtn).CornerRadius=UDim.new(0,5); track(lBtn,"BackgroundColor3","Accent")
-                    -- Duplicate btn
                     local dupBtn=Instance.new("TextButton"); dupBtn.Size=UDim2.new(0,36,0,22); dupBtn.Position=UDim2.new(1,-92,0.5,0); dupBtn.AnchorPoint=Vector2.new(0,0.5); dupBtn.BackgroundColor3=Color3.fromRGB(18,24,34); dupBtn.BackgroundTransparency=0.3; dupBtn.BorderSizePixel=0; dupBtn.Text="Dup"; dupBtn.Font=Enum.Font.GothamBold; dupBtn.TextSize=10; dupBtn.TextColor3=C.Accent; dupBtn.Parent=row; Instance.new("UICorner",dupBtn).CornerRadius=UDim.new(0,5); local dupStr=Instance.new("UIStroke"); dupStr.Thickness=1; dupStr.Transparency=0.6; dupStr.Parent=dupBtn; track(dupStr,"Color","Accent")
-                    -- Delete btn
                     local dBtn=Instance.new("TextButton"); dBtn.Size=UDim2.new(0,36,0,22); dBtn.Position=UDim2.new(1,-50,0.5,0); dBtn.AnchorPoint=Vector2.new(0,0.5); dBtn.BackgroundColor3=Color3.fromRGB(18,24,34); dBtn.BackgroundTransparency=0.3; dBtn.BorderSizePixel=0; dBtn.Text="Del"; dBtn.Font=Enum.Font.GothamBold; dBtn.TextSize=10; dBtn.TextColor3=C.Red; dBtn.Parent=row; Instance.new("UICorner",dBtn).CornerRadius=UDim.new(0,5); local dStr=Instance.new("UIStroke"); dStr.Thickness=1; dStr.Transparency=0.6; dStr.Color=C.Red; dStr.Parent=dBtn
 
                     lBtn.MouseEnter:Connect(function() S.Tween:Create(lBtn,TweenInfo.new(0.1),{BackgroundTransparency=0}):Play() end); lBtn.MouseLeave:Connect(function() S.Tween:Create(lBtn,TweenInfo.new(0.1),{BackgroundTransparency=0.2}):Play() end)
@@ -1234,34 +1160,29 @@ local function LoadNaxiumHub()
     -- BOTTOM BAR
     -- ============================================================
     do
-        local bb2=Instance.new("Frame"); bb2.Size=UDim2.new(1,-20,0,38); bb2.Position=UDim2.new(0,10,0,392); bb2.BackgroundColor3=C.DkBg; bb2.BackgroundTransparency=0.12; bb2.BorderSizePixel=0; bb2.Parent=UI.mf; track(bb2,"BackgroundColor3","DkBg"); Instance.new("UICorner",bb2).CornerRadius=UDim.new(0,7)
+        local bbLine = Instance.new("Frame"); bbLine.Size = UDim2.new(1, -20, 0, 1); bbLine.Position = UDim2.new(0, 10, 0, 385); bbLine.BackgroundColor3 = C.Accent; bbLine.BackgroundTransparency = 0.5; bbLine.BorderSizePixel = 0; bbLine.Parent = UI.mf; track(bbLine, "BackgroundColor3", "Accent")
+        
+        local bb2=Instance.new("Frame"); bb2.Size=UDim2.new(1,-20,0,42); bb2.Position=UDim2.new(0,10,0,388); bb2.BackgroundColor3=C.DkBg; bb2.BackgroundTransparency=0.12; bb2.BorderSizePixel=0; bb2.Parent=UI.mf; track(bb2,"BackgroundColor3","DkBg"); Instance.new("UICorner",bb2).CornerRadius=UDim.new(0,7)
         L("Game Status  |  CoS v2.5.1  [OK]",bb2,UDim2.new(0.33,0,1,0),UDim2.new(0,10,0,0),"Gray",Enum.TextXAlignment.Left,Enum.Font.GothamMedium,10)
 
-        -- Build rich account + expiry label (No dot, vertically stacked)
         local function buildAccText()
-            local subColor="#41bb6a" -- green
+            local subColor="#41bb6a"
             local expStr=""
             if _G.NaxiumExpiry then
                 local tl=_G.NaxiumExpiry-os.time()
-                if tl>315360000 then
-                    expStr='<font color="#9b7fe8">∞ Lifetime</font>'
+                if tl>315360000 then expStr='<font color="#9b7fe8">∞ Lifetime</font>'
                 elseif tl>0 then
                     local d=math.floor(tl/86400)
                     if d>30 then expStr='<font color="#41bb6a">'..d..'d left</font>'
                     elseif d>7 then expStr='<font color="#fcc03e">'..d..'d left</font>'
                     elseif d>0 then expStr='<font color="#d24141">'..d..'d left</font>'
-                    else
-                        local h=math.floor((tl%86400)/3600)
-                        expStr='<font color="#d24141">'..h..'h left</font>'
-                    end
-                else
-                    subColor="#d24141"; expStr='<font color="#d24141">Expired</font>'
-                end
+                    else local h=math.floor((tl%86400)/3600); expStr='<font color="#d24141">'..h..'h left</font>' end
+                else subColor="#d24141"; expStr='<font color="#d24141">Expired</font>' end
             end
             return '<font color="#c8d0dc">Naxium</font>\n<font color="'..subColor..'">Active</font>\n'..expStr
         end
 
-        local accLbl2=Instance.new("TextLabel"); accLbl2.Size=UDim2.new(0.34,0,1,0); accLbl2.Position=UDim2.new(0.33,0,0,0); accLbl2.BackgroundTransparency=1; accLbl2.RichText=true; accLbl2.Font=Enum.Font.GothamBold; accLbl2.TextSize=9; accLbl2.TextXAlignment=Enum.TextXAlignment.Center; accLbl2.TextYAlignment=Enum.TextYAlignment.Center; accLbl2.Parent=bb2
+        local accLbl2=Instance.new("TextLabel"); accLbl2.Size=UDim2.new(0.34,0,1,0); accLbl2.Position=UDim2.new(0.33,0,0,0); accLbl2.BackgroundTransparency=1; accLbl2.RichText=true; accLbl2.Font=Enum.Font.GothamBold; accLbl2.TextSize=10; accLbl2.TextXAlignment=Enum.TextXAlignment.Center; accLbl2.TextYAlignment=Enum.TextYAlignment.Center; accLbl2.Parent=bb2
         accLbl2.Text=buildAccText()
 
         local psF2=Instance.new("Frame"); psF2.Size=UDim2.new(0.33,0,1,0); psF2.Position=UDim2.new(0.66,0,0,0); psF2.BackgroundTransparency=1; psF2.Parent=bb2
