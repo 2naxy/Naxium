@@ -21,21 +21,32 @@ local app_secret  = "725a39b3e1216ba9ea81129961a5af8bdf6434b390e05fb54fdb6b9ba41
 local app_version = "1.0"
 
 -- ============================================================
+-- UNIVERSAL HTTP REQUEST
+-- ============================================================
+local httpRequest = (syn and syn.request) or (http and http.request) or http_request or (fluxus and fluxus.request) or request
+
+-- ============================================================
 -- KEYAUTH
 -- ============================================================
 local function VerifyKeyAuth(user_key, status_label)
+    if not httpRequest then
+        warn("NaxiumHub: Your executor does not support HTTP requests.")
+        if status_label then status_label.Text="Executor not supported"; status_label.TextColor3=Color3.fromRGB(210,65,65); task.wait(2) end
+        return false
+    end
+
     local player_hwid = ""
     if gethwid then player_hwid = gethwid()
     else player_hwid = game:GetService("RbxAnalyticsService"):GetClientId() end
 
     if status_label then status_label.Text = "Initializing KeyAuth Session..." end
-    local init_req = request({ Url="https://keyauth.win/api/1.2/", Method="POST", Headers={["Content-Type"]="application/x-www-form-urlencoded"}, Body="type=init&name="..app_name.."&ownerid="..owner_id.."&version="..app_version })
+    local init_req = httpRequest({ Url="https://keyauth.win/api/1.2/", Method="POST", Headers={["Content-Type"]="application/x-www-form-urlencoded"}, Body="type=init&name="..app_name.."&ownerid="..owner_id.."&version="..app_version })
     local init_data = HttpService:JSONDecode(init_req.Body)
     if not init_data.success then warn("KeyAuth Init Failed: "..init_data.message); if status_label then status_label.Text="Init Failed: "..init_data.message; status_label.TextColor3=Color3.fromRGB(210,65,65); task.wait(2) end; return false end
     local session_id = init_data.sessionid
 
     if status_label then status_label.Text = "Fetching Live Stats..." end
-    local stats_req = request({ Url="https://keyauth.win/api/1.2/", Method="POST", Headers={["Content-Type"]="application/x-www-form-urlencoded"}, Body="type=fetchStats&sessionid="..session_id.."&name="..app_name.."&ownerid="..owner_id })
+    local stats_req = httpRequest({ Url="https://keyauth.win/api/1.2/", Method="POST", Headers={["Content-Type"]="application/x-www-form-urlencoded"}, Body="type=fetchStats&sessionid="..session_id.."&name="..app_name.."&ownerid="..owner_id })
     local stats_data = HttpService:JSONDecode(stats_req.Body)
     local liveStats = "1"
     if stats_data.success and stats_data.appinfo and stats_data.appinfo.numOnlineUsers then
@@ -45,7 +56,7 @@ local function VerifyKeyAuth(user_key, status_label)
     _G.NaxiumOnlineUsers = liveStats
 
     if status_label then status_label.Text = "Validating License Key..." end
-    local license_req = request({ Url="https://keyauth.win/api/1.2/", Method="POST", Headers={["Content-Type"]="application/x-www-form-urlencoded"}, Body="type=license&key="..user_key.."&hwid="..player_hwid.."&sessionid="..session_id.."&name="..app_name.."&ownerid="..owner_id })
+    local license_req = httpRequest({ Url="https://keyauth.win/api/1.2/", Method="POST", Headers={["Content-Type"]="application/x-www-form-urlencoded"}, Body="type=license&key="..user_key.."&hwid="..player_hwid.."&sessionid="..session_id.."&name="..app_name.."&ownerid="..owner_id })
     local license_data = HttpService:JSONDecode(license_req.Body)
     if license_data.success then
         print("KeyAuth: Authentication Successful!")
