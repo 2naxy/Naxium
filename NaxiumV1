@@ -87,7 +87,6 @@ local function LoadNaxiumHub()
 
     local State = {
         saveData={_G.NaxiumSave or {}}, ConfigElements={}, tListeners={}, TogSync={},
-        -- NX user detection: keyed by UserId (number) for stability
         knownNaxiumUserIds={},
         rankCache={},
         hDrg=false, hDrgSt=nil, hDrgPos=nil, hClickTime=0, hMoved=false,
@@ -98,12 +97,12 @@ local function LoadNaxiumHub()
 
     local UI = {}
 
-    -- ── MENU CONTROLLER (hoisted so all sections can reference) ──
+    -- ── MENU CONTROLLER ──
     local mfIsOpen  = false
     local miniIsOpen= false
     local openMainMenu, closeMainMenu, toggleMainMenu
     local openMiniUI,   closeMiniUI
-    local autoSaveConfig = nil -- Set in Config section to auto-save properties seamlessly!
+    local autoSaveConfig = nil
 
     openMainMenu = function()
         if mfIsOpen then return end; mfIsOpen=true
@@ -141,7 +140,7 @@ local function LoadNaxiumHub()
     
     local function sv(k,v) 
         pcall(function() State.saveData[k]=v end) 
-        if autoSaveConfig then task.spawn(autoSaveConfig) end -- Force auto-save smoothly!
+        if autoSaveConfig then task.spawn(autoSaveConfig) end
     end
     local function ld(k,def) local ok2,v=pcall(function() return State.saveData[k] end); return (ok2 and v~=nil) and v or def end
 
@@ -168,7 +167,6 @@ local function LoadNaxiumHub()
         return res
     end
 
-    -- Destroy old UI
     pcall(function()
         local tp; pcall(function() tp=gethui() end)
         if not tp then pcall(function() tp=game:GetService("CoreGui") end) end
@@ -179,7 +177,6 @@ local function LoadNaxiumHub()
         end
     end)
 
-    -- Theme
     local DefaultColors = {
         Bg=Color3.fromRGB(11,14,20), DkBg=Color3.fromRGB(7,9,13), Accent=Color3.fromRGB(85,160,215),
         White=Color3.fromRGB(212,218,228), Gray=Color3.fromRGB(118,128,144), Green=Color3.fromRGB(65,190,105),
@@ -197,7 +194,6 @@ local function LoadNaxiumHub()
 
     UI.gui=Instance.new("ScreenGui"); UI.gui.Name="NaxiumHub"; UI.gui.ResetOnSpawn=false; UI.gui.ZIndexBehavior=Enum.ZIndexBehavior.Sibling; UI.gui.IgnoreGuiInset=true; UI.gui.Parent=targetParent
 
-    -- ── Helpers ──────────────────────────────────────────────
     local function L(txt,par,sz,pos,col,ax,fnt,ts)
         local lb=Instance.new("TextLabel"); lb.Text=txt or ""; lb.Parent=par; lb.Size=sz or UDim2.new(1,0,0,18); lb.Position=pos or UDim2.new(0,0,0,0)
         lb.BackgroundTransparency=1; lb.TextXAlignment=ax or Enum.TextXAlignment.Left; lb.Font=fnt or Enum.Font.GothamMedium; lb.TextSize=ts or 11
@@ -287,7 +283,6 @@ local function LoadNaxiumHub()
         end)
     end
 
-    -- Theme config injection
     for k,defColor in pairs(DefaultColors) do
         table.insert(State.ConfigElements,{key="tc_"..k,default=defColor,update=function(v) if v then C[k]=v; applyTheme() end end})
     end
@@ -297,6 +292,11 @@ local function LoadNaxiumHub()
     -- ============================================================
     -- NX CHAT DETECTION
     -- ============================================================
+    local ID_PING = "\226\128\139\226\128\140"
+    local ID_PONG = "\226\128\140\226\128\139"
+    local PING_STR = "/e " .. ID_PING
+    local PONG_STR = "/e " .. ID_PONG
+
     local function markNaxiumUser(p)
         if not p or p==player then return end
         if State.knownNaxiumUserIds[p.UserId] then return end
@@ -306,15 +306,15 @@ local function LoadNaxiumHub()
 
     local function setupChatDetection(p)
         p.Chatted:Connect(function(msg)
-            if string.find(msg,"/e nx_ping") or string.find(msg,"/e nx_pong") then
+            if string.find(msg, ID_PING) or string.find(msg, ID_PONG) or string.find(msg, "nx_ping") or string.find(msg, "nx_pong") then
                 markNaxiumUser(p)
-                if string.find(msg,"/e nx_ping") and p~=player then
+                if (string.find(msg, ID_PING) or string.find(msg, "nx_ping")) and p~=player then
                     task.wait(math.random(1,3)*0.1)
                     pcall(function()
                         if S.TCS.ChatVersion==Enum.ChatVersion.TextChatService then
-                            S.TCS.TextChannels.RBXGeneral:SendAsync("/e nx_pong")
+                            S.TCS.TextChannels.RBXGeneral:SendAsync(PONG_STR)
                         else
-                            game:GetService("ReplicatedStorage").DefaultChatSystemChatEvents.SayMessageRequest:FireServer("/e nx_pong","All")
+                            game:GetService("ReplicatedStorage").DefaultChatSystemChatEvents.SayMessageRequest:FireServer(PONG_STR,"All")
                         end
                     end)
                 end
@@ -324,13 +324,25 @@ local function LoadNaxiumHub()
     pcall(function()
         if S.TCS.ChatVersion == Enum.ChatVersion.TextChatService then
             S.TCS.MessageReceived:Connect(function(msg)
-                if msg and msg.Text and (string.find(msg.Text,"/e nx_ping") or string.find(msg.Text,"/e nx_pong")) then
+                if msg and msg.Text and (string.find(msg.Text, ID_PING) or string.find(msg.Text, ID_PONG) or string.find(msg.Text, "nx_ping") or string.find(msg.Text, "nx_pong")) then
                     if msg.TextSource then
                         local p = S.Players:GetPlayerByUserId(msg.TextSource.UserId)
                         if p then markNaxiumUser(p) end
                     end
                 end
             end)
+            
+            -- Prevent any "Invalid emote" local system messages from displaying in the user's chat box
+            local oldOnIncoming = S.TCS.OnIncomingMessage
+            S.TCS.OnIncomingMessage = function(msg)
+                if msg.Text and (string.find(msg.Text, ID_PING) or string.find(msg.Text, ID_PONG) or string.find(msg.Text, "nx_ping") or string.find(msg.Text, "nx_pong")) then
+                    local props = Instance.new("TextChatMessageProperties")
+                    props.Text = ""
+                    props.PrefixText = ""
+                    return props
+                end
+                if oldOnIncoming then return oldOnIncoming(msg) end
+            end
         end
     end)
 
@@ -340,9 +352,9 @@ local function LoadNaxiumHub()
         task.wait(3)
         pcall(function()
             if S.TCS.ChatVersion==Enum.ChatVersion.TextChatService then
-                S.TCS.TextChannels.RBXGeneral:SendAsync("/e nx_ping")
+                S.TCS.TextChannels.RBXGeneral:SendAsync(PING_STR)
             else
-                game:GetService("ReplicatedStorage").DefaultChatSystemChatEvents.SayMessageRequest:FireServer("/e nx_ping","All")
+                game:GetService("ReplicatedStorage").DefaultChatSystemChatEvents.SayMessageRequest:FireServer(PING_STR,"All")
             end
         end)
     end)
@@ -547,9 +559,6 @@ local function LoadNaxiumHub()
             local isMe = p==player
             local rowBg = isMe and Color3.fromRGB(22,38,58) or isNX and Color3.fromRGB(30,26,10) or Color3.fromRGB(18,24,34)
             local row=Instance.new("TextButton"); row.Size=UDim2.new(1,-4,0,28); row.BackgroundColor3=rowBg; row.BackgroundTransparency=0.3; row.BorderSizePixel=0; row.Text=""; row.AutoButtonColor=false; row.Parent=psf; Instance.new("UICorner",row).CornerRadius=UDim.new(0,5)
-            if isNX and not isMe then
-                local nxStripe=Instance.new("Frame"); nxStripe.Size=UDim2.new(0,3,0.7,0); nxStripe.Position=UDim2.new(0,0,0.15,0); nxStripe.BackgroundColor3=C.Yellow; nxStripe.BorderSizePixel=0; nxStripe.Parent=row; Instance.new("UICorner",nxStripe).CornerRadius=UDim.new(1,0); track(nxStripe,"BackgroundColor3","Yellow")
-            end
             row.MouseEnter:Connect(function() if not isMe then S.Tween:Create(row,TweenInfo.new(0.12),{BackgroundTransparency=0.08}):Play() end end); row.MouseLeave:Connect(function() S.Tween:Create(row,TweenInfo.new(0.12),{BackgroundTransparency=0.3}):Play() end)
             row.MouseButton1Click:Connect(function() loadProf(p,not isMe) end)
             local av=Instance.new("ImageLabel"); av.Size=UDim2.new(0,20,0,20); av.Position=UDim2.new(0,6,0.5,0); av.AnchorPoint=Vector2.new(0,0.5); av.BackgroundColor3=C.Bg; av.BorderSizePixel=0; av.Parent=row; Instance.new("UICorner",av).CornerRadius=UDim.new(1,0)
@@ -562,7 +571,7 @@ local function LoadNaxiumHub()
             fetchRank(p,function(rv,rn)
                 if not row or not row.Parent then return end
                 if isMe then rl.Text="YOU"; rl.TextColor3=C.Accent
-                elseif isNX then rl.Text="[NX] "..(rv>0 and rn or ""); rl.TextColor3=C.Yellow
+                elseif isNX then rl.Text="⭐ "..(rv>0 and rn or ""); rl.TextColor3=C.Yellow
                 else rl.Text=rv>0 and rn or "Not in group"; rl.TextColor3=rv>0 and C.White or C.Gray end
             end)
         end
@@ -715,6 +724,10 @@ local function LoadNaxiumHub()
                         local vis=dist<=esp.maxDist; d.hl.Enabled=esp.glowEnabled and vis; d.bb.Enabled=vis and (esp.showUser or esp.showDisplay or esp.showDist)
                         d.hl.FillColor=esp.glowColor; d.hl.OutlineColor=esp.glowColor
                         local nt=""; if esp.showDisplay and esp.showUser then nt=p.DisplayName.." (@"..p.Name..")" elseif esp.showDisplay then nt=p.DisplayName elseif esp.showUser then nt="@"..p.Name end
+                        
+                        -- Add Star to ESP
+                        if State.knownNaxiumUserIds[p.UserId] then nt = "⭐ " .. nt end
+                        
                         d.nl.Text=nt; d.nl.TextColor3=Color3.new(1,1,1); d.nl.TextSize=esp.textSize; d.dl.TextSize=math.max(8,esp.textSize-2)
                         d.dl.Visible=esp.showDist; if esp.showDist then d.dl.Text=dist.."m" end
                     else removeESP(p) end
@@ -726,7 +739,7 @@ local function LoadNaxiumHub()
     end
 
     -- ============================================================
-    -- THEMES TAB  (left side scrollable to fit all content)
+    -- THEMES TAB
     -- ============================================================
     do
         UI.THT.ZIndex=50
@@ -955,7 +968,7 @@ local function LoadNaxiumHub()
             L("Manual Import",box,UDim2.new(1,-40,0,20),UDim2.new(0,16,0,12),"White",Enum.TextXAlignment.Left,Enum.Font.GothamBold,14)
             L("Your executor blocked the clipboard. Paste the string below:",box,UDim2.new(1,-32,0,26),UDim2.new(0,16,0,34),"Gray",Enum.TextXAlignment.Left,Enum.Font.GothamMedium,10).TextWrapped=true
             local scrollF=Instance.new("Frame"); scrollF.Size=UDim2.new(1,-32,0,76); scrollF.Position=UDim2.new(0,16,0,70); scrollF.BackgroundColor3=Color3.fromRGB(7,10,16); scrollF.BackgroundTransparency=0.1; scrollF.BorderSizePixel=0; scrollF.ZIndex=502; scrollF.Parent=box; Instance.new("UICorner",scrollF).CornerRadius=UDim.new(0,6)
-            local sStr=Instance.new("UIStroke"); sStr.Thickness=1; sStr.Transparency=0.72; sStr.ZIndex=502; sStr.Parent=scrollF; track(sStr,"Color","Accent")
+            local sStr=Instance.new("UIStroke"); sStr.Thickness=1.5; sStr.Transparency=0.72; sStr.ZIndex=502; sStr.Parent=scrollF; track(sStr,"Color","Accent")
             local tb=Instance.new("TextBox"); tb.Size=UDim2.new(1,-12,1,-8); tb.Position=UDim2.new(0,6,0,4); tb.BackgroundTransparency=1; tb.Text=""; tb.PlaceholderText="Click here and press Ctrl+V to paste config..."; tb.Font=Enum.Font.RobotoMono; tb.TextSize=9; tb.TextColor3=C.Accent; tb.TextXAlignment=Enum.TextXAlignment.Left; tb.TextYAlignment=Enum.TextYAlignment.Top; tb.TextWrapped=true; tb.MultiLine=true; tb.ClearTextOnFocus=false; tb.ZIndex=503; tb.Parent=scrollF; track(tb,"TextColor3","Accent")
             local importBtn=Instance.new("TextButton"); importBtn.Size=UDim2.new(0.5,-10,0,30); importBtn.Position=UDim2.new(0,16,0,158); importBtn.BackgroundColor3=C.Green; importBtn.BackgroundTransparency=0.1; importBtn.BorderSizePixel=0; importBtn.Text="Apply Config"; importBtn.Font=Enum.Font.GothamBold; importBtn.TextSize=11; importBtn.TextColor3=Color3.new(1,1,1); importBtn.ZIndex=502; importBtn.Parent=box; Instance.new("UICorner",importBtn).CornerRadius=UDim.new(0,6)
             local closeBtn=Instance.new("TextButton"); closeBtn.Size=UDim2.new(0.5,-10,0,30); closeBtn.Position=UDim2.new(0.5,4,0,158); closeBtn.BackgroundColor3=Color3.fromRGB(18,24,34); closeBtn.BackgroundTransparency=0.2; closeBtn.BorderSizePixel=0; closeBtn.Text="Cancel"; closeBtn.Font=Enum.Font.GothamBold; closeBtn.TextSize=11; closeBtn.TextColor3=C.Gray; closeBtn.ZIndex=502; closeBtn.Parent=box; Instance.new("UICorner",closeBtn).CornerRadius=UDim.new(0,6)
@@ -1237,7 +1250,6 @@ local function LoadNaxiumHub()
             task.delay(0.6,function()
                 if sf.Parent then sf:Destroy() end
                 openMainMenu()
-                -- Play startup sound
                 pcall(function()
                     local snd=Instance.new("Sound"); snd.SoundId="rbxassetid://6599575767"; snd.Volume=0.75; snd.Parent=S.Sound; snd:Play()
                     task.delay(6,function() pcall(function() snd:Destroy() end) end)
@@ -1247,7 +1259,6 @@ local function LoadNaxiumHub()
         si.MouseButton1Click:Connect(openMenu); task.delay(5,openMenu)
     end
 
-    -- Auto-load last saved config
     task.spawn(function()
         if readfile and isfile then pcall(function()
             if isfile("NaxiumHub/autoload.txt") then
@@ -1264,7 +1275,7 @@ local function LoadNaxiumHub()
 
     print("NaxiumHub v1.7.0 loaded!")
 
-    end) -- end pcall
+    end)
     if not ok then
         warn("NaxiumHub ERROR: "..tostring(err))
         pcall(function()
