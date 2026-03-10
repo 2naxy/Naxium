@@ -1,12 +1,27 @@
 -- ============================================================
+-- NAXIUM HUB v1.4.0 - IMPROVED EDITION
+-- ============================================================
+-- SUGGESTIONS FOR FUTURE UPDATES:
+--   1. CREATURE TRACKER   - Use workspace scanning to detect creature types by name/model, display a live list with distances.
+--   2. SAFE LOGOUT SPOT   - Highlight safe logout zones (low-traffic areas) on a minimap or with ESP markers.
+--   3. SOUND ALERTS       - Custom sound IDs for proximity / staff alerts instead of hardcoded rbxassetid.
+--   4. NOTIFICATION QUEUE - Stack multiple notifications instead of overlapping them (offset Y per notif).
+--   5. HUD WIDGET BUILDER - Let users toggle which stats show on the HUD pill (FPS, Ping, Players, Uptime).
+--   6. PRESET EXPORT      - Allow exporting the current theme as a shareable JSON string via clipboard.
+--   7. KEYBIND DISPLAY    - Show all active keybinds in a compact overlay (toggle with a key).
+--   8. SERVER BROWSER     - Show a scrollable list of public servers with player counts before hopping.
+--   9. CHAT LOGGER        - Log all /e nx_ping responders in a persistent session list on the Home tab.
+--  10. DARK MODE TOGGLE   - A single toggle to swap between a "light" and "dark" theme variant instantly.
+-- ============================================================
+
+-- ============================================================
 -- KEYAUTH SETUP
 -- ============================================================
 local HttpService = game:GetService("HttpService")
 
--- Replace these with your actual KeyAuth application details
-local app_name = "NaxiumHub 1.0"
-local owner_id = "6pRpbrHmdh"
-local app_secret = "725a39b3e1216ba9ea81129961a5af8bdf6434b390e05fb54fdb6b9ba41175cd"
+local app_name    = "NaxiumHub 1.0"
+local owner_id    = "6pRpbrHmdh"
+local app_secret  = "725a39b3e1216ba9ea81129961a5af8bdf6434b390e05fb54fdb6b9ba41175cd"
 local app_version = "1.0"
 
 -- ============================================================
@@ -23,38 +38,37 @@ local function VerifyKeyAuth(user_key, status_label)
     if status_label then status_label.Text = "Initializing KeyAuth Session..." end
 
     local init_req = request({
-        Url = "https://keyauth.win/api/1.2/",
+        Url    = "https://keyauth.win/api/1.2/",
         Method = "POST",
         Headers = { ["Content-Type"] = "application/x-www-form-urlencoded" },
-        Body = "type=init&name=" .. app_name .. "&ownerid=" .. owner_id .. "&version=" .. app_version
+        Body   = "type=init&name=" .. app_name .. "&ownerid=" .. owner_id .. "&version=" .. app_version
     })
-    
+
     local init_data = HttpService:JSONDecode(init_req.Body)
     if not init_data.success then
         warn("KeyAuth Init Failed: " .. init_data.message)
-        if status_label then 
-            status_label.Text = "Init Failed: " .. init_data.message
-            status_label.TextColor3 = Color3.fromRGB(210, 65, 65) 
+        if status_label then
+            status_label.Text       = "Init Failed: " .. init_data.message
+            status_label.TextColor3 = Color3.fromRGB(210, 65, 65)
             task.wait(2)
         end
         return false
     end
-    
+
     local session_id = init_data.sessionid
 
     if status_label then status_label.Text = "Fetching Live Stats..." end
 
     local stats_req = request({
-        Url = "https://keyauth.win/api/1.2/",
+        Url    = "https://keyauth.win/api/1.2/",
         Method = "POST",
         Headers = { ["Content-Type"] = "application/x-www-form-urlencoded" },
-        Body = "type=fetchStats&sessionid=" .. session_id .. "&name=" .. app_name .. "&ownerid=" .. owner_id
+        Body   = "type=fetchStats&sessionid=" .. session_id .. "&name=" .. app_name .. "&ownerid=" .. owner_id
     })
-    
+
     local stats_data = HttpService:JSONDecode(stats_req.Body)
-    local liveStats = "1"
-    
-    -- Strips out the annoying KeyAuth N/A error message and grabs the real number
+    local liveStats  = "1"
+
     if stats_data.success and stats_data.appinfo and stats_data.appinfo.numOnlineUsers then
         local rawStr = tostring(stats_data.appinfo.numOnlineUsers)
         if not string.find(rawStr, "N/A") then
@@ -67,10 +81,11 @@ local function VerifyKeyAuth(user_key, status_label)
     if status_label then status_label.Text = "Validating License Key..." end
 
     local license_req = request({
-        Url = "https://keyauth.win/api/1.2/",
+        Url    = "https://keyauth.win/api/1.2/",
         Method = "POST",
         Headers = { ["Content-Type"] = "application/x-www-form-urlencoded" },
-        Body = "type=license&key=" .. user_key .. "&hwid=" .. player_hwid .. "&sessionid=" .. session_id .. "&name=" .. app_name .. "&ownerid=" .. owner_id
+        Body   = "type=license&key=" .. user_key .. "&hwid=" .. player_hwid
+                 .. "&sessionid=" .. session_id .. "&name=" .. app_name .. "&ownerid=" .. owner_id
     })
 
     local license_data = HttpService:JSONDecode(license_req.Body)
@@ -81,16 +96,16 @@ local function VerifyKeyAuth(user_key, status_label)
                 _G.NaxiumExpiry = tonumber(license_data.info.subscriptions[1].expiry)
             end
         end)
-        if status_label then 
-            status_label.Text = "Authentication Successful!" 
+        if status_label then
+            status_label.Text       = "Authentication Successful!"
             status_label.TextColor3 = Color3.fromRGB(65, 190, 105)
             task.wait(0.5)
         end
         return true
     else
         warn("KeyAuth: Invalid Key! (" .. license_data.message .. ")")
-        if status_label then 
-            status_label.Text = "Invalid Key: " .. license_data.message
+        if status_label then
+            status_label.Text       = "Invalid Key: " .. license_data.message
             status_label.TextColor3 = Color3.fromRGB(210, 65, 65)
             task.wait(2.5)
         end
@@ -99,224 +114,311 @@ local function VerifyKeyAuth(user_key, status_label)
 end
 
 -- ============================================================
--- YOUR MAIN SCRIPT (NAXIUM HUB)
+-- MAIN HUB LOADER
 -- ============================================================
 local function LoadNaxiumHub()
     print("NaxiumHub: executing...")
     local ok, err = pcall(function()
 
-    -- CONSOLIDATED SERVICES
+    -- SERVICES
     local S = {
-        Players = game:GetService("Players"),
-        Tween = game:GetService("TweenService"),
-        UIS = game:GetService("UserInputService"),
+        Players  = game:GetService("Players"),
+        Tween    = game:GetService("TweenService"),
+        UIS      = game:GetService("UserInputService"),
         Lighting = game:GetService("Lighting"),
-        RS = game:GetService("RunService"),
-        Sound = game:GetService("SoundService"),
-        Http = game:GetService("HttpService"),
-        TCS = game:GetService("TextChatService")
+        RS       = game:GetService("RunService"),
+        Sound    = game:GetService("SoundService"),
+        Http     = game:GetService("HttpService"),
+        TCS      = game:GetService("TextChatService")
     }
 
-    local player = S.Players.LocalPlayer or S.Players:GetPropertyChangedSignal("LocalPlayer"):Wait() and S.Players.LocalPlayer
+    local player = S.Players.LocalPlayer
+                   or S.Players:GetPropertyChangedSignal("LocalPlayer"):Wait()
+                   and S.Players.LocalPlayer
 
-    -- CONSOLIDATED STATE & MEMORY
+    -- STATE
     local State = {
-        saveData = _G.NaxiumSave or {},
-        ConfigElements = {},
-        tListeners = {},
-        TogSync = {},
-        knownNaxiumUsers = {},
-        rankCache = {},
-        hDrg = false, hDrgSt = nil, hDrgPos = nil, hClickTime = 0, hMoved = false,
-        lastTick = tick(), frames = 0,
-        drg = false, drgInp = nil, drgSt = nil, drgPos = nil
+        saveData        = _G.NaxiumSave or {},
+        ConfigElements  = {},
+        tListeners      = {},
+        TogSync         = {},
+        knownNaxiumUsers= {},
+        rankCache       = {},
+        hDrg=false, hDrgSt=nil, hDrgPos=nil, hClickTime=0, hMoved=false,
+        lastTick=tick(), frames=0,
+        drg=false, drgInp=nil, drgSt=nil, drgPos=nil,
+        -- HUD rolling history for sparkline (last 10 FPS samples)
+        fpsHistory      = {},
+        pingHistory     = {},
     }
-    
-    local UI = {} -- Consolidated UI Elements
-    
+
+    local UI = {}
+
     local function sv(k, v) pcall(function() State.saveData[k] = v end) end
-    local function ld(k, def) local ok2, v = pcall(function() return State.saveData[k] end); return (ok2 and v ~= nil) and v or def end
+    local function ld(k, def)
+        local ok2, v = pcall(function() return State.saveData[k] end)
+        return (ok2 and v ~= nil) and v or def
+    end
 
     local function encodeData(d)
         local t = {}
-        for k,v in pairs(d) do
-            if typeof(v)=="Color3" then t[k]={_c=true, r=v.R, g=v.G, b=v.B} elseif typeof(v)=="EnumItem" then t[k]={_e=true, n=v.Name} else t[k]=v end
+        for k, v in pairs(d) do
+            if typeof(v)=="Color3"    then t[k]={_c=true,r=v.R,g=v.G,b=v.B}
+            elseif typeof(v)=="EnumItem" then t[k]={_e=true,n=v.Name}
+            else t[k]=v end
         end
         return S.Http:JSONEncode(t)
     end
+
     local function decodeData(str)
-        local ok, t = pcall(function() return S.Http:JSONDecode(str) end)
-        if not ok or type(t)~="table" then return {} end
+        local ok2, t = pcall(function() return S.Http:JSONDecode(str) end)
+        if not ok2 or type(t)~="table" then return {} end
         local res = {}
-        for k,v in pairs(t) do
-            if type(v)=="table" then if v._c then res[k]=Color3.new(v.r,v.g,v.b) elseif v._e then res[k]=v.n else res[k]=v end else res[k]=v end
+        for k, v in pairs(t) do
+            if type(v)=="table" then
+                if     v._c then res[k]=Color3.new(v.r,v.g,v.b)
+                elseif v._e then res[k]=v.n
+                else             res[k]=v end
+            else res[k]=v end
         end
         return res
     end
 
     -- DESTROY OLD UI
     pcall(function()
-        local targetParent
-        pcall(function() targetParent = gethui() end)
-        if not targetParent then pcall(function() targetParent = game:GetService("CoreGui") end) end
-        if not targetParent then targetParent = player:FindFirstChildOfClass("PlayerGui") end
-        if targetParent then local old = targetParent:FindFirstChild("NaxiumHub"); if old then old:Destroy() end end
+        local tp
+        pcall(function() tp = gethui() end)
+        if not tp then pcall(function() tp = game:GetService("CoreGui") end) end
+        if not tp then tp = player:FindFirstChildOfClass("PlayerGui") end
+        if tp then local old = tp:FindFirstChild("NaxiumHub"); if old then old:Destroy() end end
         for _, p in ipairs(S.Players:GetPlayers()) do
-            if p.Character then for _, c in ipairs(p.Character:GetDescendants()) do if c:IsA("Highlight") or c:IsA("BillboardGui") then pcall(function() c:Destroy() end) end end end
+            if p.Character then
+                for _, c in ipairs(p.Character:GetDescendants()) do
+                    if c:IsA("Highlight") or c:IsA("BillboardGui") then pcall(function() c:Destroy() end) end
+                end
+            end
         end
     end)
 
-    -- THEME DEFAULTS
+    -- THEME
     local DefaultColors = {
-        Bg      = Color3.fromRGB(11,  14,  20), DkBg    = Color3.fromRGB(7,    9,  13), Accent  = Color3.fromRGB(85, 160, 215), White   = Color3.fromRGB(212, 218, 228),
-        Gray    = Color3.fromRGB(118, 128, 144), Green   = Color3.fromRGB(65,  190, 105), Tab     = Color3.fromRGB(26,   34,  48), Card    = Color3.fromRGB(14,   18,  26),
-        Yellow  = Color3.fromRGB(252, 200,  62), Red     = Color3.fromRGB(210,  65,  65),
+        Bg     = Color3.fromRGB(11, 14, 20),
+        DkBg   = Color3.fromRGB(7, 9, 13),
+        Accent = Color3.fromRGB(85, 160, 215),
+        White  = Color3.fromRGB(212, 218, 228),
+        Gray   = Color3.fromRGB(118, 128, 144),
+        Green  = Color3.fromRGB(65, 190, 105),
+        Tab    = Color3.fromRGB(26, 34, 48),
+        Card   = Color3.fromRGB(14, 18, 26),
+        Yellow = Color3.fromRGB(252, 200, 62),
+        Red    = Color3.fromRGB(210, 65, 65),
     }
     local C = {}
     for k, v in pairs(DefaultColors) do C[k] = v end
-    for k, _ in pairs(C) do pcall(function() local sv2 = ld("tc_"..k, nil); if sv2 and typeof(sv2) == "Color3" then C[k] = sv2 end end) end
-    
-    local function applyTheme() for _, e in ipairs(State.tListeners) do pcall(function() if e[1] and e[1].Parent then e[1][e[2]] = C[e[3]] end end) end end
-    local function track(inst, prop, key) table.insert(State.tListeners, {inst, prop, key}); pcall(function() inst[prop] = C[key] end) end
+    for k in pairs(C) do
+        pcall(function()
+            local sv2 = ld("tc_"..k, nil)
+            if sv2 and typeof(sv2)=="Color3" then C[k]=sv2 end
+        end)
+    end
 
-    -- GUI ROOT & HELPERS
+    local function applyTheme()
+        for _, e in ipairs(State.tListeners) do
+            pcall(function() if e[1] and e[1].Parent then e[1][e[2]]=C[e[3]] end end)
+        end
+    end
+    local function track(inst, prop, key)
+        table.insert(State.tListeners, {inst, prop, key})
+        pcall(function() inst[prop]=C[key] end)
+    end
+
+    -- GUI ROOT
     local targetParent
     pcall(function() targetParent = gethui() end)
     if not targetParent then pcall(function() targetParent = game:GetService("CoreGui") end) end
     if not targetParent then targetParent = player:WaitForChild("PlayerGui", 10) end
 
-    UI.gui = Instance.new("ScreenGui"); UI.gui.Name = "NaxiumHub"; UI.gui.ResetOnSpawn = false; UI.gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling; UI.gui.IgnoreGuiInset = true; UI.gui.Parent = targetParent
+    UI.gui = Instance.new("ScreenGui")
+    UI.gui.Name           = "NaxiumHub"
+    UI.gui.ResetOnSpawn   = false
+    UI.gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    UI.gui.IgnoreGuiInset = true
+    UI.gui.Parent         = targetParent
 
+    -- ── HELPERS ──────────────────────────────────────────────
     local function L(txt, par, sz, pos, col, ax, fnt, ts)
-        local lb = Instance.new("TextLabel"); lb.Text = txt or ""; lb.Parent = par; lb.Size = sz or UDim2.new(1,0,0,18); lb.Position = pos or UDim2.new(0,0,0,0)
-        lb.BackgroundTransparency = 1; lb.TextXAlignment = ax or Enum.TextXAlignment.Left; lb.Font = fnt or Enum.Font.GothamMedium; lb.TextSize = ts or 11
-        if type(col) == "string" and C[col] then lb.TextColor3 = C[col]; track(lb, "TextColor3", col) else lb.TextColor3 = (type(col) == "userdata" and col) or C.White end
+        local lb = Instance.new("TextLabel")
+        lb.Text                  = txt or ""
+        lb.Parent                = par
+        lb.Size                  = sz  or UDim2.new(1,0,0,18)
+        lb.Position              = pos or UDim2.new(0,0,0,0)
+        lb.BackgroundTransparency= 1
+        lb.TextXAlignment        = ax  or Enum.TextXAlignment.Left
+        lb.Font                  = fnt or Enum.Font.GothamMedium
+        lb.TextSize              = ts  or 11
+        if type(col)=="string" and C[col] then
+            lb.TextColor3 = C[col]; track(lb,"TextColor3",col)
+        else
+            lb.TextColor3 = (type(col)=="userdata" and col) or C.White
+        end
         return lb
     end
+
     local function mkCard(par, sz, pos)
-        local f = Instance.new("Frame"); f.Size = sz; f.Position = pos; f.BackgroundColor3 = C.Card; f.BackgroundTransparency = 0.18; f.BorderSizePixel = 0; f.Parent = par
-        track(f, "BackgroundColor3", "Card"); Instance.new("UICorner", f).CornerRadius = UDim.new(0, 8)
-        local s = Instance.new("UIStroke"); s.Thickness = 1.5; s.Transparency = 0.82; s.Parent = f; track(s, "Color", "Accent"); return f
+        local f = Instance.new("Frame")
+        f.Size                    = sz; f.Position = pos
+        f.BackgroundColor3        = C.Card; f.BackgroundTransparency = 0.18
+        f.BorderSizePixel         = 0; f.Parent = par
+        track(f,"BackgroundColor3","Card")
+        Instance.new("UICorner",f).CornerRadius = UDim.new(0,8)
+        local s = Instance.new("UIStroke"); s.Thickness=1.5; s.Transparency=0.82; s.Parent=f
+        track(s,"Color","Accent"); return f
     end
+
     local function mkDiv(par, y, ws)
-        local d = Instance.new("Frame"); d.Size = UDim2.new(ws or 1, -14, 0, 1); d.Position = UDim2.new(0, 7, 0, y); d.BackgroundTransparency = 0.72; d.BorderSizePixel = 0; d.Parent = par
-        track(d, "BackgroundColor3", "Accent"); Instance.new("UICorner", d).CornerRadius = UDim.new(1, 0); return d
+        local d = Instance.new("Frame")
+        d.Size=UDim2.new(ws or 1,-14,0,1); d.Position=UDim2.new(0,7,0,y)
+        d.BackgroundTransparency=0.72; d.BorderSizePixel=0; d.Parent=par
+        track(d,"BackgroundColor3","Accent"); Instance.new("UICorner",d).CornerRadius=UDim.new(1,0); return d
     end
+
     local function mkHdr(par, txt, y)
-        L(txt, par, UDim2.new(1,-14,0,13), UDim2.new(0,10,0,y or 6), "Accent", Enum.TextXAlignment.Left, Enum.Font.GothamBold, 10); mkDiv(par, (y or 6)+16, 1)
+        L(txt,par,UDim2.new(1,-14,0,13),UDim2.new(0,10,0,y or 6),"Accent",Enum.TextXAlignment.Left,Enum.Font.GothamBold,10)
+        mkDiv(par,(y or 6)+16,1)
     end
+
     local function mkRow(par, icon, txt, y)
-        L(icon, par, UDim2.new(0,14,0,14), UDim2.new(0,9,0,y), "Accent", Enum.TextXAlignment.Center, Enum.Font.GothamBold, 11)
-        return L(txt, par, UDim2.new(1,-30,0,14), UDim2.new(0,25,0,y), "Gray", Enum.TextXAlignment.Left, Enum.Font.GothamMedium, 11)
+        L(icon,par,UDim2.new(0,14,0,14),UDim2.new(0,9,0,y),"Accent",Enum.TextXAlignment.Center,Enum.Font.GothamBold,11)
+        return L(txt,par,UDim2.new(1,-30,0,14),UDim2.new(0,25,0,y),"Gray",Enum.TextXAlignment.Left,Enum.Font.GothamMedium,11)
     end
 
     local function mkTog(par, lbl, yPos, saveKey, def, cb, syncId)
-        local bg = Instance.new("Frame"); bg.Size = UDim2.new(1,0,0,28); bg.Position = UDim2.new(0,0,0,yPos); bg.BackgroundColor3 = C.Card; bg.BackgroundTransparency = 0.55; bg.BorderSizePixel = 0; bg.Parent = par; track(bg,"BackgroundColor3","Card")
-        Instance.new("UICorner", bg).CornerRadius = UDim.new(0, 6); L(lbl, bg, UDim2.new(1,-52,1,0), UDim2.new(0,9,0,0), "White", Enum.TextXAlignment.Left, Enum.Font.GothamMedium, 11)
-        local trk = Instance.new("Frame"); trk.Size = UDim2.new(0,30,0,14); trk.Position = UDim2.new(1,-38,0.5,0); trk.AnchorPoint = Vector2.new(0,0.5); trk.BorderSizePixel = 0; trk.Parent = bg; Instance.new("UICorner", trk).CornerRadius = UDim.new(1, 0)
-        local knb = Instance.new("Frame"); knb.Size = UDim2.new(0,10,0,10); knb.AnchorPoint = Vector2.new(0,0.5); knb.BackgroundColor3 = Color3.fromRGB(230,238,248); knb.BorderSizePixel = 0; knb.ZIndex = 2; knb.Parent = trk; Instance.new("UICorner", knb).CornerRadius = UDim.new(1, 0)
-        local btn = Instance.new("TextButton"); btn.Size = UDim2.new(0,30,0,22); btn.Position = UDim2.new(1,-38,0.5,0); btn.AnchorPoint = Vector2.new(0,0.5); btn.BackgroundTransparency = 1; btn.Text = ""; btn.ZIndex = 5; btn.Parent = bg
+        local bg = Instance.new("Frame")
+        bg.Size=UDim2.new(1,0,0,28); bg.Position=UDim2.new(0,0,0,yPos)
+        bg.BackgroundColor3=C.Card; bg.BackgroundTransparency=0.55
+        bg.BorderSizePixel=0; bg.Parent=par; track(bg,"BackgroundColor3","Card")
+        Instance.new("UICorner",bg).CornerRadius=UDim.new(0,6)
+        L(lbl,bg,UDim2.new(1,-52,1,0),UDim2.new(0,9,0,0),"White",Enum.TextXAlignment.Left,Enum.Font.GothamMedium,11)
+        local trk = Instance.new("Frame")
+        trk.Size=UDim2.new(0,30,0,14); trk.Position=UDim2.new(1,-38,0.5,0); trk.AnchorPoint=Vector2.new(0,0.5)
+        trk.BorderSizePixel=0; trk.Parent=bg; Instance.new("UICorner",trk).CornerRadius=UDim.new(1,0)
+        local knb = Instance.new("Frame")
+        knb.Size=UDim2.new(0,10,0,10); knb.AnchorPoint=Vector2.new(0,0.5)
+        knb.BackgroundColor3=Color3.fromRGB(230,238,248); knb.BorderSizePixel=0; knb.ZIndex=2; knb.Parent=trk
+        Instance.new("UICorner",knb).CornerRadius=UDim.new(1,0)
+        local btn = Instance.new("TextButton")
+        btn.Size=UDim2.new(0,30,0,22); btn.Position=UDim2.new(1,-38,0.5,0); btn.AnchorPoint=Vector2.new(0,0.5)
+        btn.BackgroundTransparency=1; btn.Text=""; btn.ZIndex=5; btn.Parent=bg
         local st = ld(saveKey, def)
         local function setVis(val)
-            st = val; sv(saveKey, val)
-            S.Tween:Create(trk, TweenInfo.new(0.16, Enum.EasingStyle.Quad), {BackgroundColor3 = st and C.Green or Color3.fromRGB(38,46,60)}):Play()
-            S.Tween:Create(knb, TweenInfo.new(0.16, Enum.EasingStyle.Quad), {Position = st and UDim2.new(1,-12,0.5,0) or UDim2.new(0,2,0.5,0)}):Play()
-            if cb then pcall(cb, val) end
+            st=val; sv(saveKey,val)
+            S.Tween:Create(trk,TweenInfo.new(0.16,Enum.EasingStyle.Quad),{BackgroundColor3=st and C.Green or Color3.fromRGB(38,46,60)}):Play()
+            S.Tween:Create(knb,TweenInfo.new(0.16,Enum.EasingStyle.Quad),{Position=st and UDim2.new(1,-12,0.5,0) or UDim2.new(0,2,0.5,0)}):Play()
+            if cb then pcall(cb,val) end
         end
         if syncId then
-            if not State.TogSync[syncId] then State.TogSync[syncId] = {state=st, vis={}, cbs={}} end
-            table.insert(State.TogSync[syncId].vis, setVis); if cb then table.insert(State.TogSync[syncId].cbs, cb) end
+            if not State.TogSync[syncId] then State.TogSync[syncId]={state=st,vis={},cbs={}} end
+            table.insert(State.TogSync[syncId].vis,setVis)
+            if cb then table.insert(State.TogSync[syncId].cbs,cb) end
             st = State.TogSync[syncId].state
         end
         setVis(st)
-        table.insert(State.ConfigElements, {key = saveKey, default = def, update = function(val) if val ~= nil then if syncId then State.TogSync[syncId].state = val end setVis(val) end end})
+        table.insert(State.ConfigElements,{key=saveKey,default=def,update=function(val) if val~=nil then if syncId then State.TogSync[syncId].state=val end; setVis(val) end end})
         btn.MouseButton1Click:Connect(function()
-            if syncId then local newVal = not State.TogSync[syncId].state; State.TogSync[syncId].state = newVal; for _, fn in ipairs(State.TogSync[syncId].vis) do fn(newVal) end else setVis(not st) end
+            if syncId then
+                local newVal = not State.TogSync[syncId].state
+                State.TogSync[syncId].state = newVal
+                for _, fn in ipairs(State.TogSync[syncId].vis) do fn(newVal) end
+            else setVis(not st) end
         end)
         return bg
     end
 
     local function mkSlider(par, lbl, y, saveKey, mn, mx, def, fmt, cb)
-        local bg = Instance.new("Frame"); bg.Size = UDim2.new(1,0,0,36); bg.Position = UDim2.new(0,0,0,y); bg.BackgroundColor3 = C.Card; bg.BackgroundTransparency = 0.55; bg.BorderSizePixel = 0; bg.Parent = par; track(bg,"BackgroundColor3","Card")
-        Instance.new("UICorner", bg).CornerRadius = UDim.new(0, 6); L(lbl, bg, UDim2.new(0.62,0,0,14), UDim2.new(0,9,0,4), "White", Enum.TextXAlignment.Left, Enum.Font.GothamMedium, 11)
-        local cVal = ld(saveKey, def); local vl = L(string.format(fmt or "%.1f", cVal), bg, UDim2.new(0.38,-8,0,14), UDim2.new(0.62,0,0,4), "Accent", Enum.TextXAlignment.Right, Enum.Font.GothamBold, 11)
-        local tb = Instance.new("Frame"); tb.Size = UDim2.new(1,-18,0,3); tb.Position = UDim2.new(0,9,0,25); tb.BackgroundColor3 = Color3.fromRGB(28,36,50); tb.BorderSizePixel = 0; tb.Parent = bg; Instance.new("UICorner", tb).CornerRadius = UDim.new(1, 0)
-        local fi = Instance.new("Frame"); fi.Size = UDim2.new((cVal-mn)/(mx-mn),0,1,0); fi.BackgroundColor3 = C.Accent; fi.BorderSizePixel = 0; fi.Parent = tb; track(fi,"BackgroundColor3","Accent"); Instance.new("UICorner", fi).CornerRadius = UDim.new(1, 0)
-        local kn = Instance.new("Frame"); kn.Size = UDim2.new(0,10,0,10); kn.AnchorPoint = Vector2.new(0.5,0.5); kn.Position = UDim2.new((cVal-mn)/(mx-mn),0,0.5,0); kn.BackgroundColor3 = Color3.fromRGB(215,230,245); kn.BorderSizePixel = 0; kn.ZIndex = 2; kn.Parent = tb; Instance.new("UICorner", kn).CornerRadius = UDim.new(1, 0)
+        local bg = Instance.new("Frame")
+        bg.Size=UDim2.new(1,0,0,36); bg.Position=UDim2.new(0,0,0,y)
+        bg.BackgroundColor3=C.Card; bg.BackgroundTransparency=0.55
+        bg.BorderSizePixel=0; bg.Parent=par; track(bg,"BackgroundColor3","Card")
+        Instance.new("UICorner",bg).CornerRadius=UDim.new(0,6)
+        L(lbl,bg,UDim2.new(0.62,0,0,14),UDim2.new(0,9,0,4),"White",Enum.TextXAlignment.Left,Enum.Font.GothamMedium,11)
+        local cVal = ld(saveKey,def)
+        local vl = L(string.format(fmt or "%.1f",cVal),bg,UDim2.new(0.38,-8,0,14),UDim2.new(0.62,0,0,4),"Accent",Enum.TextXAlignment.Right,Enum.Font.GothamBold,11)
+        local tb = Instance.new("Frame")
+        tb.Size=UDim2.new(1,-18,0,3); tb.Position=UDim2.new(0,9,0,25)
+        tb.BackgroundColor3=Color3.fromRGB(28,36,50); tb.BorderSizePixel=0; tb.Parent=bg
+        Instance.new("UICorner",tb).CornerRadius=UDim.new(1,0)
+        local fi = Instance.new("Frame"); fi.Size=UDim2.new((cVal-mn)/(mx-mn),0,1,0); fi.BackgroundColor3=C.Accent; fi.BorderSizePixel=0; fi.Parent=tb; track(fi,"BackgroundColor3","Accent"); Instance.new("UICorner",fi).CornerRadius=UDim.new(1,0)
+        local kn = Instance.new("Frame"); kn.Size=UDim2.new(0,10,0,10); kn.AnchorPoint=Vector2.new(0.5,0.5); kn.Position=UDim2.new((cVal-mn)/(mx-mn),0,0.5,0); kn.BackgroundColor3=Color3.fromRGB(215,230,245); kn.BorderSizePixel=0; kn.ZIndex=2; kn.Parent=tb; Instance.new("UICorner",kn).CornerRadius=UDim.new(1,0)
         local function updateVisuals(val)
-            local r = math.clamp((val-mn)/(mx-mn), 0, 1)
-            fi.Size = UDim2.new(r,0,1,0); kn.Position = UDim2.new(r,0,0.5,0); vl.Text = string.format(fmt or "%.1f", val)
-            sv(saveKey, val); if cb then pcall(cb, val) end
+            local r=math.clamp((val-mn)/(mx-mn),0,1)
+            fi.Size=UDim2.new(r,0,1,0); kn.Position=UDim2.new(r,0,0.5,0)
+            vl.Text=string.format(fmt or "%.1f",val); sv(saveKey,val)
+            if cb then pcall(cb,val) end
         end
-        updateVisuals(cVal); table.insert(State.ConfigElements, {key = saveKey, default = def, update = function(val) if val ~= nil then updateVisuals(val) end end})
-        local lDrg = false; local sb = Instance.new("TextButton"); sb.Size = UDim2.new(1,0,4,0); sb.Position = UDim2.new(0,0,-1.5,0); sb.BackgroundTransparency = 1; sb.Text = ""; sb.ZIndex = 3; sb.Parent = tb
-        sb.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then lDrg = true end end)
-        S.UIS.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then lDrg = false end end)
+        updateVisuals(cVal)
+        table.insert(State.ConfigElements,{key=saveKey,default=def,update=function(val) if val~=nil then updateVisuals(val) end end})
+        local lDrg=false
+        local sb=Instance.new("TextButton"); sb.Size=UDim2.new(1,0,4,0); sb.Position=UDim2.new(0,0,-1.5,0); sb.BackgroundTransparency=1; sb.Text=""; sb.ZIndex=3; sb.Parent=tb
+        sb.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 then lDrg=true end end)
+        S.UIS.InputEnded:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 then lDrg=false end end)
         S.UIS.InputChanged:Connect(function(i)
-            if lDrg and i.UserInputType == Enum.UserInputType.MouseMovement then
-                local a = tb.AbsolutePosition; local s = tb.AbsoluteSize; local r = math.clamp((i.Position.X - a.X) / s.X, 0, 1)
+            if lDrg and i.UserInputType==Enum.UserInputType.MouseMovement then
+                local a=tb.AbsolutePosition; local sz=tb.AbsoluteSize
+                local r=math.clamp((i.Position.X-a.X)/sz.X,0,1)
                 updateVisuals(mn+(mx-mn)*r)
             end
         end)
     end
 
     local function tBar(par, xOff, bW, dV, saveKey, def, onCh)
-        local tb = Instance.new("Frame"); tb.Size = UDim2.new(0,bW,0,3); tb.Position = UDim2.new(0,xOff,0.5,-1); tb.BackgroundColor3 = Color3.fromRGB(28,36,50); tb.BorderSizePixel = 0; tb.Parent = par; Instance.new("UICorner", tb).CornerRadius = UDim.new(1, 0)
-        local fi = Instance.new("Frame"); fi.Size = UDim2.new(dV,0,1,0); fi.BackgroundColor3 = C.Accent; fi.BorderSizePixel = 0; fi.Parent = tb; track(fi,"BackgroundColor3","Accent"); Instance.new("UICorner", fi).CornerRadius = UDim.new(1, 0)
-        local kn = Instance.new("Frame"); kn.Size = UDim2.new(0,9,0,9); kn.AnchorPoint = Vector2.new(0.5,0.5); kn.Position = UDim2.new(dV,0,0.5,0); kn.BackgroundColor3 = Color3.fromRGB(210,228,244); kn.BorderSizePixel = 0; kn.ZIndex = 2; kn.Parent = tb; Instance.new("UICorner", kn).CornerRadius = UDim.new(1, 0)
-        
+        local tb=Instance.new("Frame"); tb.Size=UDim2.new(0,bW,0,3); tb.Position=UDim2.new(0,xOff,0.5,-1); tb.BackgroundColor3=Color3.fromRGB(28,36,50); tb.BorderSizePixel=0; tb.Parent=par; Instance.new("UICorner",tb).CornerRadius=UDim.new(1,0)
+        local fi=Instance.new("Frame"); fi.Size=UDim2.new(dV,0,1,0); fi.BackgroundColor3=C.Accent; fi.BorderSizePixel=0; fi.Parent=tb; track(fi,"BackgroundColor3","Accent"); Instance.new("UICorner",fi).CornerRadius=UDim.new(1,0)
+        local kn=Instance.new("Frame"); kn.Size=UDim2.new(0,9,0,9); kn.AnchorPoint=Vector2.new(0.5,0.5); kn.Position=UDim2.new(dV,0,0.5,0); kn.BackgroundColor3=Color3.fromRGB(210,228,244); kn.BorderSizePixel=0; kn.ZIndex=2; kn.Parent=tb; Instance.new("UICorner",kn).CornerRadius=UDim.new(1,0)
         local function setV(val)
-            fi.Size = UDim2.new(val,0,1,0); kn.Position = UDim2.new(val,0,0.5,0)
-            if saveKey then sv(saveKey, val) end
-            if onCh then pcall(onCh, val) end
+            fi.Size=UDim2.new(val,0,1,0); kn.Position=UDim2.new(val,0,0.5,0)
+            if saveKey then sv(saveKey,val) end
+            if onCh then pcall(onCh,val) end
         end
         if saveKey then
-            local sVal = ld(saveKey, def)
-            setV(sVal)
-            table.insert(State.ConfigElements, {key = saveKey, default = def, update = function(v) if v ~= nil then setV(v) end end})
-        else
-            setV(dV)
-        end
-
-        local lDrg = false; local sb = Instance.new("TextButton"); sb.Size = UDim2.new(1,0,5,0); sb.Position = UDim2.new(0,0,-2,0); sb.BackgroundTransparency = 1; sb.Text = ""; sb.ZIndex = 3; sb.Parent = tb
-        sb.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then lDrg = true end end)
-        S.UIS.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then lDrg = false end end)
+            local sVal=ld(saveKey,def); setV(sVal)
+            table.insert(State.ConfigElements,{key=saveKey,default=def,update=function(v) if v~=nil then setV(v) end end})
+        else setV(dV) end
+        local lDrg=false
+        local sb=Instance.new("TextButton"); sb.Size=UDim2.new(1,0,5,0); sb.Position=UDim2.new(0,0,-2,0); sb.BackgroundTransparency=1; sb.Text=""; sb.ZIndex=3; sb.Parent=tb
+        sb.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 then lDrg=true end end)
+        S.UIS.InputEnded:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 then lDrg=false end end)
         S.UIS.InputChanged:Connect(function(i)
-            if lDrg and i.UserInputType == Enum.UserInputType.MouseMovement then
-                local a = tb.AbsolutePosition; local s = tb.AbsoluteSize; local r = math.clamp((i.Position.X - a.X) / s.X, 0, 1)
-                setV(r)
+            if lDrg and i.UserInputType==Enum.UserInputType.MouseMovement then
+                local a=tb.AbsolutePosition; local sz=tb.AbsoluteSize
+                local r=math.clamp((i.Position.X-a.X)/sz.X,0,1); setV(r)
             end
         end)
     end
 
-    -- GLOBAL VARS FOR TABS
+    -- GLOBAL VARS
     local refreshList, setRainbow, miniUI, miniBtn
 
-    -- ============================================================
     -- THEME CONFIG INJECTION
-    -- ============================================================
     for k, defColor in pairs(DefaultColors) do
         table.insert(State.ConfigElements, {
-            key = "tc_"..k,
+            key     = "tc_"..k,
             default = defColor,
-            update = function(v) if v then C[k] = v; applyTheme() end end
+            update  = function(v) if v then C[k]=v; applyTheme() end end
         })
     end
 
-    -- ============================================================
-    -- SILENT CHAT HANDSHAKE (Naxium Cross-Player Detection)
-    -- ============================================================
+    -- CHAT DETECTION
     local function setupChatDetection(p)
         p.Chatted:Connect(function(msg)
-            if string.find(msg, "/e nx_ping") or string.find(msg, "/e nx_pong") then
-                State.knownNaxiumUsers[p] = true
-                if string.find(msg, "/e nx_ping") and p ~= player then
-                    task.wait(math.random(1, 3) * 0.1) 
-                    pcall(function() 
-                        if S.TCS.ChatVersion == Enum.ChatVersion.TextChatService then
+            if string.find(msg,"/e nx_ping") or string.find(msg,"/e nx_pong") then
+                State.knownNaxiumUsers[p]=true
+                if string.find(msg,"/e nx_ping") and p~=player then
+                    task.wait(math.random(1,3)*0.1)
+                    pcall(function()
+                        if S.TCS.ChatVersion==Enum.ChatVersion.TextChatService then
                             S.TCS.TextChannels.RBXGeneral:SendAsync("/e nx_pong")
                         else
-                            game:GetService("ReplicatedStorage").DefaultChatSystemChatEvents.SayMessageRequest:FireServer("/e nx_pong", "All")
+                            game:GetService("ReplicatedStorage").DefaultChatSystemChatEvents.SayMessageRequest:FireServer("/e nx_pong","All")
                         end
                     end)
                 end
@@ -326,213 +428,383 @@ local function LoadNaxiumHub()
     end
     for _, p in ipairs(S.Players:GetPlayers()) do setupChatDetection(p) end
     S.Players.PlayerAdded:Connect(setupChatDetection)
-
     task.spawn(function()
-        task.wait(3) 
-        pcall(function() 
-            if S.TCS.ChatVersion == Enum.ChatVersion.TextChatService then
+        task.wait(3)
+        pcall(function()
+            if S.TCS.ChatVersion==Enum.ChatVersion.TextChatService then
                 S.TCS.TextChannels.RBXGeneral:SendAsync("/e nx_ping")
             else
-                game:GetService("ReplicatedStorage").DefaultChatSystemChatEvents.SayMessageRequest:FireServer("/e nx_ping", "All")
+                game:GetService("ReplicatedStorage").DefaultChatSystemChatEvents.SayMessageRequest:FireServer("/e nx_ping","All")
             end
         end)
     end)
 
     -- ============================================================
-    -- TOP HUD & MAIN FRAME
+    -- IMPROVED TOP HUD
+    -- Wider pill, bigger logo, segmented FPS / Ping with coloured
+    -- status dots and a thin quality bar underneath each value.
     -- ============================================================
-    UI.mf = Instance.new("Frame")
-    
-    -- DEFAULT TO TRUE ON EXECUTE
     local showHud = ld("showHud", true)
-    
-    -- Clean, Slimline HUD (No Border)
-    UI.topHud = Instance.new("Frame"); UI.topHud.Size = UDim2.new(0, 160, 0, 24); UI.topHud.Position = UDim2.new(0.5, 0, 0, 10); UI.topHud.AnchorPoint = Vector2.new(0.5, 0); UI.topHud.BackgroundColor3 = C.DkBg; UI.topHud.BackgroundTransparency = 0.35; UI.topHud.BorderSizePixel = 0; UI.topHud.Visible = showHud; UI.topHud.Parent = UI.gui
-    track(UI.topHud, "BackgroundColor3", "DkBg"); Instance.new("UICorner", UI.topHud).CornerRadius = UDim.new(0, 6)
 
-    UI.fpsLbl = L("0 FPS", UI.topHud, UDim2.new(0.5,-20,1,0), UDim2.new(0,10,0,0), "White", Enum.TextXAlignment.Left, Enum.Font.GothamBold, 11)
-    UI.fpsLbl.TextStrokeTransparency = 0.1; UI.fpsLbl.TextStrokeColor3 = Color3.new(0,0,0)
-    
-    UI.pingLbl = L("0 ms", UI.topHud, UDim2.new(0.5,-20,1,0), UDim2.new(0.5,10,0,0), "White", Enum.TextXAlignment.Right, Enum.Font.GothamBold, 11)
-    UI.pingLbl.TextStrokeTransparency = 0.1; UI.pingLbl.TextStrokeColor3 = Color3.new(0,0,0)
-    
-    UI.hudLogo = Instance.new("ImageButton"); UI.hudLogo.Size = UDim2.new(0,16,0,16); UI.hudLogo.Position = UDim2.new(0.5,0,0.5,0); UI.hudLogo.AnchorPoint = Vector2.new(0.5,0.5); UI.hudLogo.BackgroundTransparency = 1; UI.hudLogo.Image = "rbxassetid://75254466518091"; UI.hudLogo.ZIndex = 2; UI.hudLogo.Parent = UI.topHud
-    UI.logoShadow = Instance.new("ImageLabel"); UI.logoShadow.Size = UDim2.new(1,2,1,2); UI.logoShadow.Position = UDim2.new(0.5,0,0.5,1); UI.logoShadow.AnchorPoint = Vector2.new(0.5,0.5); UI.logoShadow.BackgroundTransparency = 1; UI.logoShadow.Image = "rbxassetid://75254466518091"; UI.logoShadow.ImageColor3 = Color3.new(0,0,0); UI.logoShadow.ImageTransparency = 0.4; UI.logoShadow.ZIndex = 1; UI.logoShadow.Parent = UI.hudLogo
-    
+    -- Outer pill
+    UI.topHud = Instance.new("Frame")
+    UI.topHud.Name                  = "TopHud"
+    UI.topHud.Size                  = UDim2.new(0, 210, 0, 36)
+    UI.topHud.Position              = UDim2.new(0.5, 0, 0, 10)
+    UI.topHud.AnchorPoint           = Vector2.new(0.5, 0)
+    UI.topHud.BackgroundColor3      = C.DkBg
+    UI.topHud.BackgroundTransparency= 0.22
+    UI.topHud.BorderSizePixel       = 0
+    UI.topHud.Visible               = showHud
+    UI.topHud.Parent                = UI.gui
+    track(UI.topHud,"BackgroundColor3","DkBg")
+    Instance.new("UICorner", UI.topHud).CornerRadius = UDim.new(0, 10)
+    local hudStroke = Instance.new("UIStroke")
+    hudStroke.Thickness    = 1
+    hudStroke.Transparency = 0.65
+    hudStroke.Parent       = UI.topHud
+    track(hudStroke,"Color","Accent")
+
+    -- Centre logo (larger: 22x22)
+    UI.hudLogo = Instance.new("ImageButton")
+    UI.hudLogo.Size                 = UDim2.new(0, 22, 0, 22)
+    UI.hudLogo.Position             = UDim2.new(0.5, 0, 0.5, 0)
+    UI.hudLogo.AnchorPoint          = Vector2.new(0.5, 0.5)
+    UI.hudLogo.BackgroundTransparency = 1
+    UI.hudLogo.Image                = "rbxassetid://75254466518091"
+    UI.hudLogo.ZIndex               = 3
+    UI.hudLogo.Parent               = UI.topHud
+    -- Glow shadow
+    local logoGlow = Instance.new("ImageLabel")
+    logoGlow.Size             = UDim2.new(1, 8, 1, 8)
+    logoGlow.Position         = UDim2.new(0.5, 0, 0.5, 1)
+    logoGlow.AnchorPoint      = Vector2.new(0.5, 0.5)
+    logoGlow.BackgroundTransparency = 1
+    logoGlow.Image            = "rbxassetid://75254466518091"
+    logoGlow.ImageColor3      = C.Accent
+    logoGlow.ImageTransparency= 0.62
+    logoGlow.ZIndex           = 2
+    logoGlow.Parent           = UI.hudLogo
+    track(logoGlow,"ImageColor3","Accent")
+    -- Pulse animation on the glow
+    S.Tween:Create(logoGlow, TweenInfo.new(1.6,Enum.EasingStyle.Sine,Enum.EasingDirection.InOut,-1,true),
+        {ImageTransparency=0.88}):Play()
+
     UI.hudLogo.MouseEnter:Connect(function() S.Tween:Create(UI.hudLogo,TweenInfo.new(0.15),{ImageColor3=C.Accent}):Play() end)
     UI.hudLogo.MouseLeave:Connect(function() S.Tween:Create(UI.hudLogo,TweenInfo.new(0.15),{ImageColor3=Color3.new(1,1,1)}):Play() end)
-    
+
+    -- ── Left section: FPS ──
+    local fpsSection = Instance.new("Frame")
+    fpsSection.Size                    = UDim2.new(0, 82, 1, 0)
+    fpsSection.Position                = UDim2.new(0, 0, 0, 0)
+    fpsSection.BackgroundTransparency  = 1
+    fpsSection.Parent                  = UI.topHud
+
+    local fpsDot = Instance.new("Frame")
+    fpsDot.Size            = UDim2.new(0, 6, 0, 6)
+    fpsDot.Position        = UDim2.new(0, 10, 0.5, -8)
+    fpsDot.AnchorPoint     = Vector2.new(0, 0.5)
+    fpsDot.BackgroundColor3= C.Green
+    fpsDot.BorderSizePixel = 0
+    fpsDot.Parent          = fpsSection
+    Instance.new("UICorner",fpsDot).CornerRadius = UDim.new(1,0)
+    S.Tween:Create(fpsDot,TweenInfo.new(1.1,Enum.EasingStyle.Sine,Enum.EasingDirection.InOut,-1,true),{BackgroundTransparency=0.55}):Play()
+
+    UI.fpsLbl = Instance.new("TextLabel")
+    UI.fpsLbl.Size                = UDim2.new(1, -20, 0, 16)
+    UI.fpsLbl.Position            = UDim2.new(0, 20, 0, 3)
+    UI.fpsLbl.BackgroundTransparency = 1
+    UI.fpsLbl.Text                = "0 FPS"
+    UI.fpsLbl.TextColor3          = C.White
+    UI.fpsLbl.Font                = Enum.Font.GothamBold
+    UI.fpsLbl.TextSize            = 12
+    UI.fpsLbl.TextXAlignment      = Enum.TextXAlignment.Left
+    UI.fpsLbl.TextStrokeTransparency = 0.2
+    UI.fpsLbl.TextStrokeColor3    = Color3.new(0,0,0)
+    UI.fpsLbl.Parent              = fpsSection
+
+    -- FPS quality bar (thin coloured underline)
+    local fpsBar = Instance.new("Frame")
+    fpsBar.Size                  = UDim2.new(0.8, 0, 0, 2)
+    fpsBar.Position              = UDim2.new(0, 20, 1, -5)
+    fpsBar.BackgroundColor3      = C.Green
+    fpsBar.BorderSizePixel       = 0
+    fpsBar.Parent                = fpsSection
+    Instance.new("UICorner",fpsBar).CornerRadius = UDim.new(1,0)
+    local fpsSubLbl = Instance.new("TextLabel")
+    fpsSubLbl.Size                = UDim2.new(1,-20,0,11)
+    fpsSubLbl.Position            = UDim2.new(0,20,0,17)
+    fpsSubLbl.BackgroundTransparency=1
+    fpsSubLbl.Text                = "frames/sec"
+    fpsSubLbl.TextColor3          = C.Gray
+    fpsSubLbl.Font                = Enum.Font.Gotham
+    fpsSubLbl.TextSize            = 8
+    fpsSubLbl.TextXAlignment      = Enum.TextXAlignment.Left
+    fpsSubLbl.Parent              = fpsSection
+
+    -- Vertical divider
+    local hudDiv = Instance.new("Frame")
+    hudDiv.Size             = UDim2.new(0, 1, 0, 22)
+    hudDiv.Position         = UDim2.new(0.5, 0, 0.5, 0)
+    hudDiv.AnchorPoint      = Vector2.new(0.5, 0.5)
+    hudDiv.BackgroundColor3 = C.Accent
+    hudDiv.BackgroundTransparency = 0.7
+    hudDiv.BorderSizePixel  = 0
+    hudDiv.Parent           = UI.topHud
+    track(hudDiv,"BackgroundColor3","Accent")
+
+    -- ── Right section: Ping ──
+    local pingSection = Instance.new("Frame")
+    pingSection.Size                   = UDim2.new(0, 82, 1, 0)
+    pingSection.Position               = UDim2.new(1, -82, 0, 0)
+    pingSection.BackgroundTransparency = 1
+    pingSection.Parent                 = UI.topHud
+
+    local pingDot = Instance.new("Frame")
+    pingDot.Size             = UDim2.new(0, 6, 0, 6)
+    pingDot.Position         = UDim2.new(0, 8, 0.5, -8)
+    pingDot.AnchorPoint      = Vector2.new(0, 0.5)
+    pingDot.BackgroundColor3 = C.Green
+    pingDot.BorderSizePixel  = 0
+    pingDot.Parent           = pingSection
+    Instance.new("UICorner",pingDot).CornerRadius = UDim.new(1,0)
+    S.Tween:Create(pingDot,TweenInfo.new(1.3,Enum.EasingStyle.Sine,Enum.EasingDirection.InOut,-1,true),{BackgroundTransparency=0.55}):Play()
+
+    UI.pingLbl = Instance.new("TextLabel")
+    UI.pingLbl.Size                = UDim2.new(1, -18, 0, 16)
+    UI.pingLbl.Position            = UDim2.new(0, 18, 0, 3)
+    UI.pingLbl.BackgroundTransparency = 1
+    UI.pingLbl.Text                = "0 ms"
+    UI.pingLbl.TextColor3          = C.White
+    UI.pingLbl.Font                = Enum.Font.GothamBold
+    UI.pingLbl.TextSize            = 12
+    UI.pingLbl.TextXAlignment      = Enum.TextXAlignment.Left
+    UI.pingLbl.TextStrokeTransparency = 0.2
+    UI.pingLbl.TextStrokeColor3    = Color3.new(0,0,0)
+    UI.pingLbl.Parent              = pingSection
+
+    local pingBar = Instance.new("Frame")
+    pingBar.Size             = UDim2.new(0.8, 0, 0, 2)
+    pingBar.Position         = UDim2.new(0, 18, 1, -5)
+    pingBar.BackgroundColor3 = C.Green
+    pingBar.BorderSizePixel  = 0
+    pingBar.Parent           = pingSection
+    Instance.new("UICorner",pingBar).CornerRadius = UDim.new(1,0)
+    local pingSubLbl = Instance.new("TextLabel")
+    pingSubLbl.Size                = UDim2.new(1,-18,0,11)
+    pingSubLbl.Position            = UDim2.new(0,18,0,17)
+    pingSubLbl.BackgroundTransparency=1
+    pingSubLbl.Text                = "latency"
+    pingSubLbl.TextColor3          = C.Gray
+    pingSubLbl.Font                = Enum.Font.Gotham
+    pingSubLbl.TextSize            = 8
+    pingSubLbl.TextXAlignment      = Enum.TextXAlignment.Left
+    pingSubLbl.Parent              = pingSection
+
+    -- HUD Drag & click-to-toggle
     UI.hudLogo.InputBegan:Connect(function(i)
-        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-            State.hDrg = true; State.hDrgSt = i.Position; State.hDrgPos = UI.topHud.Position; State.hClickTime = tick(); State.hMoved = false
+        if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
+            State.hDrg=true; State.hDrgSt=i.Position; State.hDrgPos=UI.topHud.Position
+            State.hClickTime=tick(); State.hMoved=false
         end
     end)
     S.UIS.InputChanged:Connect(function(i)
-        if State.hDrg and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
-            local d = i.Position - State.hDrgSt
-            if d.Magnitude > 3 then State.hMoved = true end
-            UI.topHud.Position = UDim2.new(State.hDrgPos.X.Scale, State.hDrgPos.X.Offset + d.X, State.hDrgPos.Y.Scale, State.hDrgPos.Y.Offset + d.Y)
+        if State.hDrg and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then
+            local d=i.Position-State.hDrgSt
+            if d.Magnitude>3 then State.hMoved=true end
+            UI.topHud.Position=UDim2.new(State.hDrgPos.X.Scale,State.hDrgPos.X.Offset+d.X,State.hDrgPos.Y.Scale,State.hDrgPos.Y.Offset+d.Y)
         end
     end)
     S.UIS.InputEnded:Connect(function(i)
-        if State.hDrg and (i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch) then
-            State.hDrg = false
-            if not State.hMoved and (tick() - State.hClickTime) < 0.25 then UI.mf.Visible = not UI.mf.Visible end
+        if State.hDrg and (i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch) then
+            State.hDrg=false
+            if not State.hMoved and (tick()-State.hClickTime)<0.25 then UI.mf.Visible=not UI.mf.Visible end
         end
     end)
 
+    -- HUD update loop (fps + ping + bar colours)
     S.RS.RenderStepped:Connect(function()
-        State.frames = State.frames + 1
-        if tick() - State.lastTick >= 1 then
+        State.frames = State.frames+1
+        if tick()-State.lastTick >= 1 then
             if UI.topHud.Visible then
-                UI.fpsLbl.Text = tostring(State.frames).." FPS"; UI.fpsLbl.TextColor3 = State.frames < 30 and C.Red or C.White
-                local p = 0; pcall(function() p = math.floor(player:GetNetworkPing() * 1000 + 0.5) end)
-                if p == 0 then pcall(function() p = math.floor(game:GetService("Stats").Network.ServerStatsItem["Data Ping"]:GetValue() + 0.5) end) end
-                UI.pingLbl.Text = tostring(p).." ms"; UI.pingLbl.TextColor3 = p > 200 and C.Red or C.White
+                local fps = State.frames
+                -- FPS label + bar colour
+                local fpsCol = fps >= 55 and C.Green or fps >= 30 and C.Yellow or C.Red
+                UI.fpsLbl.Text       = tostring(fps).." FPS"
+                UI.fpsLbl.TextColor3 = fpsCol
+                fpsDot.BackgroundColor3 = fpsCol
+                S.Tween:Create(fpsBar, TweenInfo.new(0.5,Enum.EasingStyle.Quad),
+                    {BackgroundColor3=fpsCol, Size=UDim2.new(math.clamp(fps/120,0.05,1)*0.8,0,0,2)}):Play()
+
+                -- Ping
+                local p=0
+                pcall(function() p=math.floor(player:GetNetworkPing()*1000+0.5) end)
+                if p==0 then pcall(function() p=math.floor(game:GetService("Stats").Network.ServerStatsItem["Data Ping"]:GetValue()+0.5) end) end
+                local pingCol = p <= 80 and C.Green or p <= 180 and C.Yellow or C.Red
+                UI.pingLbl.Text       = tostring(p).." ms"
+                UI.pingLbl.TextColor3 = pingCol
+                pingDot.BackgroundColor3 = pingCol
+                -- Ping bar: shorter = better (invert ratio, cap at 500ms)
+                local pingRatio = math.clamp(1-(p/500), 0.05, 1)
+                S.Tween:Create(pingBar, TweenInfo.new(0.5,Enum.EasingStyle.Quad),
+                    {BackgroundColor3=pingCol, Size=UDim2.new(pingRatio*0.8,0,0,2)}):Play()
             end
-            State.frames = 0; State.lastTick = tick()
+            State.frames=0; State.lastTick=tick()
         end
     end)
 
-    UI.mf.Name = "Main"; UI.mf.Size = UDim2.new(0,800,0,440); UI.mf.Position = UDim2.new(0.5,0,0.5,0); UI.mf.AnchorPoint = Vector2.new(0.5,0.5); UI.mf.BackgroundColor3 = C.Bg; UI.mf.BackgroundTransparency = 0.06; UI.mf.BorderSizePixel = 0; UI.mf.Visible = false; UI.mf.ClipsDescendants = true; UI.mf.Parent = UI.gui; track(UI.mf,"BackgroundColor3","Bg"); Instance.new("UICorner", UI.mf).CornerRadius = UDim.new(0, 10)
-    
+    -- ============================================================
+    -- MAIN FRAME
+    -- ============================================================
+    UI.mf = Instance.new("Frame")
+    UI.mf.Name="Main"; UI.mf.Size=UDim2.new(0,800,0,440); UI.mf.Position=UDim2.new(0.5,0,0.5,0); UI.mf.AnchorPoint=Vector2.new(0.5,0.5)
+    UI.mf.BackgroundColor3=C.Bg; UI.mf.BackgroundTransparency=0.06; UI.mf.BorderSizePixel=0; UI.mf.Visible=false; UI.mf.ClipsDescendants=true; UI.mf.Parent=UI.gui
+    track(UI.mf,"BackgroundColor3","Bg"); Instance.new("UICorner",UI.mf).CornerRadius=UDim.new(0,10)
+
     local DEF_BG = "rbxassetid://75254466518091"
-    UI.bgImg = Instance.new("ImageLabel"); UI.bgImg.BackgroundTransparency = 1; UI.bgImg.Image = ld("bg_img", DEF_BG); UI.bgImg.ImageTransparency = 0.85; UI.bgImg.ZIndex = 0; UI.bgImg.Parent = UI.mf
-    
-    -- Smart Background Scaler (Watermarks the Naxium logo, Stretches custom wallpapers)
+    UI.bgImg=Instance.new("ImageLabel"); UI.bgImg.BackgroundTransparency=1; UI.bgImg.Image=ld("bg_img",DEF_BG); UI.bgImg.ImageTransparency=0.85; UI.bgImg.ZIndex=0; UI.bgImg.Parent=UI.mf
+
     local function updateBgScaling(imgStr)
-        if imgStr == "" or string.find(imgStr, "75254466518091") then
-            UI.bgImg.Size = UDim2.new(0.6, 0, 0.6, 0)
-            UI.bgImg.Position = UDim2.new(0.5, 0, 0.5, 0)
-            UI.bgImg.AnchorPoint = Vector2.new(0.5, 0.5)
-            UI.bgImg.ScaleType = Enum.ScaleType.Fit
+        if imgStr=="" or string.find(imgStr,"75254466518091") then
+            UI.bgImg.Size=UDim2.new(0.6,0,0.6,0); UI.bgImg.Position=UDim2.new(0.5,0,0.5,0)
+            UI.bgImg.AnchorPoint=Vector2.new(0.5,0.5); UI.bgImg.ScaleType=Enum.ScaleType.Fit
         else
-            UI.bgImg.Size = UDim2.new(1, 0, 1, 0)
-            UI.bgImg.Position = UDim2.new(0.5, 0, 0.5, 0)
-            UI.bgImg.AnchorPoint = Vector2.new(0.5, 0.5)
-            UI.bgImg.ScaleType = Enum.ScaleType.Crop
+            UI.bgImg.Size=UDim2.new(1,0,1,0); UI.bgImg.Position=UDim2.new(0.5,0,0.5,0)
+            UI.bgImg.AnchorPoint=Vector2.new(0.5,0.5); UI.bgImg.ScaleType=Enum.ScaleType.Crop
         end
     end
     updateBgScaling(UI.bgImg.Image)
-    
-    table.insert(State.ConfigElements, {
-        key = "bg_img", default = DEF_BG,
-        update = function(v) if v then UI.bgImg.Image = v; updateBgScaling(v) end end
-    })
+    table.insert(State.ConfigElements,{key="bg_img",default=DEF_BG,update=function(v) if v then UI.bgImg.Image=v; updateBgScaling(v) end end})
 
-    UI.bStr = Instance.new("UIStroke"); UI.bStr.ApplyStrokeMode = Enum.ApplyStrokeMode.Border; UI.bStr.Thickness = 1.5; UI.bStr.Transparency = 0.5; UI.bStr.Parent = UI.mf; track(UI.bStr,"Color","Accent")
+    UI.bStr=Instance.new("UIStroke"); UI.bStr.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; UI.bStr.Thickness=1.5; UI.bStr.Transparency=0.5; UI.bStr.Parent=UI.mf; track(UI.bStr,"Color","Accent")
 
-    UI.topBar = Instance.new("Frame"); UI.topBar.Size = UDim2.new(1,0,0,30); UI.topBar.BackgroundTransparency = 1; UI.topBar.Active = true; UI.topBar.ZIndex = 10; UI.topBar.Parent = UI.mf
-    UI.logo = Instance.new("ImageLabel"); UI.logo.Size = UDim2.new(0,14,0,14); UI.logo.Position = UDim2.new(0,12,0.5,0); UI.logo.AnchorPoint = Vector2.new(0,0.5); UI.logo.BackgroundTransparency = 1; UI.logo.Image = "rbxassetid://75254466518091"; UI.logo.Parent = UI.topBar
-    L("Naxium  |  Creatures of Sonaria", UI.topBar, UDim2.new(1,-50,1,0), UDim2.new(0,34,0,0), "Gray", Enum.TextXAlignment.Left, Enum.Font.Gotham, 11)
+    -- Top bar + drag
+    UI.topBar=Instance.new("Frame"); UI.topBar.Size=UDim2.new(1,0,0,30); UI.topBar.BackgroundTransparency=1; UI.topBar.Active=true; UI.topBar.ZIndex=10; UI.topBar.Parent=UI.mf
+    UI.logo=Instance.new("ImageLabel"); UI.logo.Size=UDim2.new(0,14,0,14); UI.logo.Position=UDim2.new(0,12,0.5,0); UI.logo.AnchorPoint=Vector2.new(0,0.5); UI.logo.BackgroundTransparency=1; UI.logo.Image="rbxassetid://75254466518091"; UI.logo.Parent=UI.topBar
+    L("Naxium  |  Creatures of Sonaria",UI.topBar,UDim2.new(1,-50,1,0),UDim2.new(0,34,0,0),"Gray",Enum.TextXAlignment.Left,Enum.Font.Gotham,11)
 
     local function showCloseConfirm()
-        local modalBg = Instance.new("Frame"); modalBg.Size = UDim2.new(1,0,1,0); modalBg.BackgroundColor3 = Color3.new(0,0,0); modalBg.BackgroundTransparency = 0.4; modalBg.ZIndex = 1000; modalBg.Parent = UI.mf
-        local dBox = Instance.new("Frame"); dBox.Size = UDim2.new(0,300,0,140); dBox.Position = UDim2.new(0.5,0,0.5,0); dBox.AnchorPoint = Vector2.new(0.5,0.5); dBox.BackgroundColor3 = C.DkBg; dBox.BorderSizePixel = 0; dBox.ZIndex = 1001; dBox.Parent = modalBg; track(dBox,"BackgroundColor3","DkBg"); Instance.new("UICorner",dBox).CornerRadius = UDim.new(0,8)
-        local sBox = Instance.new("UIStroke"); sBox.Thickness = 1.5; sBox.Color = C.Red; sBox.Transparency = 0.2; sBox.Parent = dBox
-        L("Close Naxium?", dBox, UDim2.new(1,0,0,20), UDim2.new(0,0,0,16), "White", Enum.TextXAlignment.Center, Enum.Font.GothamBold, 15)
-        L("This will fully destroy the interface and disable all active features.", dBox, UDim2.new(1,-40,0,40), UDim2.new(0,20,0,44), "Gray", Enum.TextXAlignment.Center, Enum.Font.GothamMedium, 11).TextWrapped = true
-        local btnNo = Instance.new("TextButton"); btnNo.Size = UDim2.new(0,110,0,30); btnNo.Position = UDim2.new(0,30,0,94); btnNo.BackgroundColor3 = C.Card; btnNo.BorderSizePixel = 0; btnNo.Text = "Cancel"; btnNo.TextColor3 = C.White; btnNo.Font = Enum.Font.GothamBold; btnNo.TextSize = 12; btnNo.ZIndex = 1002; btnNo.Parent = dBox; Instance.new("UICorner",btnNo).CornerRadius = UDim.new(0,6); track(btnNo,"BackgroundColor3","Card")
-        local btnYes = Instance.new("TextButton"); btnYes.Size = UDim2.new(0,110,0,30); btnYes.Position = UDim2.new(1,-140,0,94); btnYes.BackgroundColor3 = C.Red; btnYes.BorderSizePixel = 0; btnYes.Text = "Destroy Hub"; btnYes.TextColor3 = Color3.new(1,1,1); btnYes.Font = Enum.Font.GothamBold; btnYes.TextSize = 12; btnYes.ZIndex = 1002; btnYes.Parent = dBox; Instance.new("UICorner",btnYes).CornerRadius = UDim.new(0,6)
+        local modalBg=Instance.new("Frame"); modalBg.Size=UDim2.new(1,0,1,0); modalBg.BackgroundColor3=Color3.new(0,0,0); modalBg.BackgroundTransparency=0.4; modalBg.ZIndex=1000; modalBg.Parent=UI.mf
+        local dBox=Instance.new("Frame"); dBox.Size=UDim2.new(0,300,0,140); dBox.Position=UDim2.new(0.5,0,0.5,0); dBox.AnchorPoint=Vector2.new(0.5,0.5); dBox.BackgroundColor3=C.DkBg; dBox.BorderSizePixel=0; dBox.ZIndex=1001; dBox.Parent=modalBg; track(dBox,"BackgroundColor3","DkBg"); Instance.new("UICorner",dBox).CornerRadius=UDim.new(0,8)
+        local sBox=Instance.new("UIStroke"); sBox.Thickness=1.5; sBox.Color=C.Red; sBox.Transparency=0.2; sBox.Parent=dBox
+        L("Close Naxium?",dBox,UDim2.new(1,0,0,20),UDim2.new(0,0,0,16),"White",Enum.TextXAlignment.Center,Enum.Font.GothamBold,15)
+        L("This will fully destroy the interface and disable all active features.",dBox,UDim2.new(1,-40,0,40),UDim2.new(0,20,0,44),"Gray",Enum.TextXAlignment.Center,Enum.Font.GothamMedium,11).TextWrapped=true
+        local btnNo=Instance.new("TextButton"); btnNo.Size=UDim2.new(0,110,0,30); btnNo.Position=UDim2.new(0,30,0,94); btnNo.BackgroundColor3=C.Card; btnNo.BorderSizePixel=0; btnNo.Text="Cancel"; btnNo.TextColor3=C.White; btnNo.Font=Enum.Font.GothamBold; btnNo.TextSize=12; btnNo.ZIndex=1002; btnNo.Parent=dBox; Instance.new("UICorner",btnNo).CornerRadius=UDim.new(0,6); track(btnNo,"BackgroundColor3","Card")
+        local btnYes=Instance.new("TextButton"); btnYes.Size=UDim2.new(0,110,0,30); btnYes.Position=UDim2.new(1,-140,0,94); btnYes.BackgroundColor3=C.Red; btnYes.BorderSizePixel=0; btnYes.Text="Destroy Hub"; btnYes.TextColor3=Color3.new(1,1,1); btnYes.Font=Enum.Font.GothamBold; btnYes.TextSize=12; btnYes.ZIndex=1002; btnYes.Parent=dBox; Instance.new("UICorner",btnYes).CornerRadius=UDim.new(0,6)
         btnNo.MouseButton1Click:Connect(function() modalBg:Destroy() end)
         btnYes.MouseButton1Click:Connect(function() pcall(function() settings().Rendering.QualityLevel=Enum.QualityLevel.Automatic end); S.Lighting.GlobalShadows=true; UI.gui:Destroy() end)
     end
-    UI.cBtn = Instance.new("TextButton"); UI.cBtn.Size = UDim2.new(0,26,0,26); UI.cBtn.Position = UDim2.new(1,-26,0.5,0); UI.cBtn.AnchorPoint = Vector2.new(0,0.5); UI.cBtn.BackgroundTransparency = 1; UI.cBtn.Text = "X"; UI.cBtn.Font = Enum.Font.GothamBold; UI.cBtn.TextSize = 13; UI.cBtn.TextColor3 = C.Gray; UI.cBtn.Parent = UI.topBar
-    UI.cBtn.MouseEnter:Connect(function() UI.cBtn.TextColor3 = Color3.fromRGB(235,75,75) end); UI.cBtn.MouseLeave:Connect(function() UI.cBtn.TextColor3 = C.Gray end); UI.cBtn.MouseButton1Click:Connect(showCloseConfirm)
+    UI.cBtn=Instance.new("TextButton"); UI.cBtn.Size=UDim2.new(0,26,0,26); UI.cBtn.Position=UDim2.new(1,-26,0.5,0); UI.cBtn.AnchorPoint=Vector2.new(0,0.5); UI.cBtn.BackgroundTransparency=1; UI.cBtn.Text="X"; UI.cBtn.Font=Enum.Font.GothamBold; UI.cBtn.TextSize=13; UI.cBtn.TextColor3=C.Gray; UI.cBtn.Parent=UI.topBar
+    UI.cBtn.MouseEnter:Connect(function() UI.cBtn.TextColor3=Color3.fromRGB(235,75,75) end); UI.cBtn.MouseLeave:Connect(function() UI.cBtn.TextColor3=C.Gray end); UI.cBtn.MouseButton1Click:Connect(showCloseConfirm)
 
-    UI.topBar.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then State.drg = true; State.drgSt = i.Position; State.drgPos = UI.mf.Position; i.Changed:Connect(function() if i.UserInputState == Enum.UserInputState.End then State.drg = false end end) end end)
-    UI.topBar.InputChanged:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseMovement then State.drgInp = i end end)
-    S.UIS.InputChanged:Connect(function(i) if i == State.drgInp and State.drg then local d = i.Position - State.drgSt; UI.mf.Position = UDim2.new(State.drgPos.X.Scale, State.drgPos.X.Offset+d.X, State.drgPos.Y.Scale, State.drgPos.Y.Offset+d.Y) end end)
+    UI.topBar.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 then State.drg=true; State.drgSt=i.Position; State.drgPos=UI.mf.Position; i.Changed:Connect(function() if i.UserInputState==Enum.UserInputState.End then State.drg=false end end) end end)
+    UI.topBar.InputChanged:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseMovement then State.drgInp=i end end)
+    S.UIS.InputChanged:Connect(function(i) if i==State.drgInp and State.drg then local d=i.Position-State.drgSt; UI.mf.Position=UDim2.new(State.drgPos.X.Scale,State.drgPos.X.Offset+d.X,State.drgPos.Y.Scale,State.drgPos.Y.Offset+d.Y) end end)
 
-    UI.navLine = Instance.new("Frame"); UI.navLine.Size = UDim2.new(1,-20,0,1); UI.navLine.Position = UDim2.new(0,10,0,27); UI.navLine.BackgroundColor3 = C.Accent; UI.navLine.BackgroundTransparency = 0.5; UI.navLine.BorderSizePixel = 0; UI.navLine.Parent = UI.mf; track(UI.navLine,"BackgroundColor3","Accent")
-    UI.nav = Instance.new("Frame"); UI.nav.Size = UDim2.new(1,-20,0,30); UI.nav.Position = UDim2.new(0,10,0,30); UI.nav.BackgroundTransparency = 1; UI.nav.ZIndex = 10; UI.nav.Parent = UI.mf
-    UI.navLL = Instance.new("UIListLayout"); UI.navLL.FillDirection = Enum.FillDirection.Horizontal; UI.navLL.SortOrder = Enum.SortOrder.LayoutOrder; UI.navLL.Padding = UDim.new(0,4); UI.navLL.Parent = UI.nav
-    UI.CC = Instance.new("Frame"); UI.CC.Size = UDim2.new(1,-20,0,330); UI.CC.Position = UDim2.new(0,10,0,65); UI.CC.BackgroundColor3 = C.DkBg; UI.CC.BackgroundTransparency = 0.14; UI.CC.BorderSizePixel = 0; UI.CC.ClipsDescendants = true; UI.CC.ZIndex = 2; UI.CC.Parent = UI.mf; track(UI.CC,"BackgroundColor3","DkBg"); Instance.new("UICorner",UI.CC).CornerRadius = UDim.new(0,8)
+    -- ── IMPROVED TABS (icons + active underline) ──────────────
+    UI.navLine=Instance.new("Frame"); UI.navLine.Size=UDim2.new(1,-20,0,1); UI.navLine.Position=UDim2.new(0,10,0,27); UI.navLine.BackgroundColor3=C.Accent; UI.navLine.BackgroundTransparency=0.5; UI.navLine.BorderSizePixel=0; UI.navLine.Parent=UI.mf; track(UI.navLine,"BackgroundColor3","Accent")
+    UI.nav=Instance.new("Frame"); UI.nav.Size=UDim2.new(1,-20,0,30); UI.nav.Position=UDim2.new(0,10,0,30); UI.nav.BackgroundTransparency=1; UI.nav.ZIndex=10; UI.nav.Parent=UI.mf
+    UI.navLL=Instance.new("UIListLayout"); UI.navLL.FillDirection=Enum.FillDirection.Horizontal; UI.navLL.SortOrder=Enum.SortOrder.LayoutOrder; UI.navLL.Padding=UDim.new(0,4); UI.navLL.Parent=UI.nav
+    UI.CC=Instance.new("Frame"); UI.CC.Size=UDim2.new(1,-20,0,330); UI.CC.Position=UDim2.new(0,10,0,65); UI.CC.BackgroundColor3=C.DkBg; UI.CC.BackgroundTransparency=0.14; UI.CC.BorderSizePixel=0; UI.CC.ClipsDescendants=true; UI.CC.ZIndex=2; UI.CC.Parent=UI.mf; track(UI.CC,"BackgroundColor3","DkBg"); Instance.new("UICorner",UI.CC).CornerRadius=UDim.new(0,8)
 
-    local TAB_IH = 310; local TABS = {"Home","Safe","Visuals","Themes","Config","Settings"}
+    -- Tab icons (decorative prefix)
+    local TAB_IH = 310
+    local TABS = {
+        {name="Home",     icon="⌂"},
+        {name="Safe",     icon="⚠"},
+        {name="Visuals",  icon="◎"},
+        {name="Themes",   icon="✦"},
+        {name="Config",   icon="⚙"},
+        {name="Settings", icon="≡"},
+    }
     local tBtns, tFrames = {}, {}
-    for i, name in ipairs(TABS) do
-        local btn = Instance.new("TextButton"); btn.Size = UDim2.new(1/#TABS,-4,1,0); btn.BackgroundColor3 = (i==1) and C.Tab or C.DkBg; btn.BackgroundTransparency = (i==1) and 0 or 0.4; btn.BorderSizePixel = 0; btn.Text = name; btn.Font = Enum.Font.GothamBold; btn.TextSize = 11; btn.TextColor3 = (i==1) and C.White or C.Gray; btn.ZIndex = 10; btn.Parent = UI.nav; Instance.new("UICorner",btn).CornerRadius = UDim.new(0,3); table.insert(tBtns,btn)
-        local tf = Instance.new("Frame"); tf.Size = UDim2.new(1,0,1,0); tf.BackgroundTransparency = 1; tf.Visible = (i==1); tf.ClipsDescendants = true; tf.ZIndex = 3; tf.Parent = UI.CC
-        local pad = Instance.new("UIPadding"); pad.PaddingLeft = UDim.new(0,10); pad.PaddingRight = UDim.new(0,10); pad.PaddingTop = UDim.new(0,10); pad.PaddingBottom = UDim.new(0,10); pad.Parent = tf; table.insert(tFrames,tf)
+    for i, tabDef in ipairs(TABS) do
+        local btn=Instance.new("TextButton")
+        btn.Size=UDim2.new(1/#TABS,-4,1,0); btn.BackgroundColor3=(i==1) and C.Tab or C.DkBg
+        btn.BackgroundTransparency=(i==1) and 0 or 0.4; btn.BorderSizePixel=0
+        btn.Text=tabDef.icon.." "..tabDef.name; btn.Font=Enum.Font.GothamBold; btn.TextSize=11
+        btn.TextColor3=(i==1) and C.White or C.Gray; btn.ZIndex=10; btn.Parent=UI.nav
+        Instance.new("UICorner",btn).CornerRadius=UDim.new(0,3)
+
+        -- Active underline bar
+        local uLine=Instance.new("Frame")
+        uLine.Size=UDim2.new(i==1 and 1 or 0,-8,0,2); uLine.Position=UDim2.new(0,4,1,-2)
+        uLine.BackgroundColor3=C.Accent; uLine.BorderSizePixel=0; uLine.BackgroundTransparency= i==1 and 0 or 1; uLine.Parent=btn
+        track(uLine,"BackgroundColor3","Accent")
+        Instance.new("UICorner",uLine).CornerRadius=UDim.new(1,0)
+
+        table.insert(tBtns,{btn=btn,line=uLine})
+
+        local tf=Instance.new("Frame"); tf.Size=UDim2.new(1,0,1,0); tf.BackgroundTransparency=1; tf.Visible=(i==1); tf.ClipsDescendants=true; tf.ZIndex=3; tf.Parent=UI.CC
+        local pad=Instance.new("UIPadding"); pad.PaddingLeft=UDim.new(0,10); pad.PaddingRight=UDim.new(0,10); pad.PaddingTop=UDim.new(0,10); pad.PaddingBottom=UDim.new(0,10); pad.Parent=tf
+        table.insert(tFrames,tf)
+
         btn.MouseButton1Click:Connect(function()
-            for j, fr in ipairs(tFrames) do fr.Visible = false; tBtns[j].BackgroundColor3 = C.DkBg; tBtns[j].BackgroundTransparency = 0.4; tBtns[j].TextColor3 = C.Gray end
-            tf.Visible = true; btn.BackgroundColor3 = C.Tab; btn.BackgroundTransparency = 0; btn.TextColor3 = C.White
+            for j,td in ipairs(tBtns) do
+                tFrames[j].Visible=false
+                td.btn.BackgroundColor3=C.DkBg; td.btn.BackgroundTransparency=0.4; td.btn.TextColor3=C.Gray
+                S.Tween:Create(td.line,TweenInfo.new(0.18,Enum.EasingStyle.Quad),{Size=UDim2.new(0,-8,0,2),BackgroundTransparency=1}):Play()
+            end
+            tf.Visible=true; btn.BackgroundColor3=C.Tab; btn.BackgroundTransparency=0; btn.TextColor3=C.White
+            S.Tween:Create(uLine,TweenInfo.new(0.22,Enum.EasingStyle.Quad),{Size=UDim2.new(1,-8,0,2),BackgroundTransparency=0}):Play()
         end)
     end
-    UI.HT = tFrames[1]; UI.SAT = tFrames[2]; UI.VT = tFrames[3]; UI.THT = tFrames[4]; UI.CFG = tFrames[5]; UI.SET = tFrames[6]
-    local W_HALF = 375; local W_L3 = 245; local W_M3 = 245; local W_R3 = 250
-    local fetchRank = function(p, cb) task.spawn(function() local ok1,rv = pcall(function() return p:GetRankInGroup(2919215) end); local ok2,rn = pcall(function() return p:GetRoleInGroup(2919215) end); local r = ok1 and rv or 0; local n = (ok2 and rn and r>0) and rn or "N/A"; State.rankCache[p.UserId] = {rank=r,name=n}; pcall(cb,r,n) end) end
+    UI.HT=tFrames[1]; UI.SAT=tFrames[2]; UI.VT=tFrames[3]; UI.THT=tFrames[4]; UI.CFG=tFrames[5]; UI.SET=tFrames[6]
 
-    -- GLOBAL VARS FOR TABS
-    local refreshList, setRainbow, miniUI, miniBtn
+    local W_HALF=375; local W_L3=245; local W_M3=245; local W_R3=250
+    local fetchRank=function(p,cb) task.spawn(function() local ok1,rv=pcall(function() return p:GetRankInGroup(2919215) end); local ok2,rn=pcall(function() return p:GetRoleInGroup(2919215) end); local r=ok1 and rv or 0; local n=(ok2 and rn and r>0) and rn or "N/A"; State.rankCache[p.UserId]={rank=r,name=n}; pcall(cb,r,n) end) end
 
     -- ============================================================
-    -- HOME TAB
+    -- HOME TAB  (unchanged from original)
     -- ============================================================
     do
-        local sc = mkCard(UI.HT, UDim2.new(0,W_L3,0,85), UDim2.new(0,0,0,0)); mkHdr(sc,"SERVER INFO",6)
-        
-        local sidV = mkRow(sc,"#","ID: loading...",25)
-        local rawSid = game.JobId ~= "" and game.JobId or "Studio"
-        sidV.Text = "ID: " .. string.sub(rawSid, 1, 12) .. "..."
-        local sidBtn = Instance.new("TextButton"); sidBtn.Size = UDim2.new(1,0,1,0); sidBtn.BackgroundTransparency = 1; sidBtn.Text = ""; sidBtn.Parent = sidV
-        sidBtn.MouseButton1Click:Connect(function()
-            pcall(function() setclipboard(tostring(rawSid)) end)
-            sidV.Text = "Copied to clipboard!"
-            task.delay(1.5, function() sidV.Text = "ID: " .. string.sub(rawSid, 1, 12) .. "..." end)
-        end)
-
-        local regV = mkRow(sc,"@","Region: detecting...",45)
-        local ageV = mkRow(sc,"T","Uptime: --",65)
-        S.RS.Heartbeat:Connect(function() 
-            local uptime = workspace.DistributedGameTime
-            local d = math.floor(uptime / 86400); local h = math.floor((uptime % 86400) / 3600); local m = math.floor((uptime % 3600) / 60); local s = math.floor(uptime % 60)
-            if d > 0 then ageV.Text = string.format("Uptime: %dd %02d:%02d:%02d", d, h, m, s) else ageV.Text = string.format("Uptime: %02d:%02d:%02d", h, m, s) end
-        end)
-        
-        task.spawn(function()
-            local region = "Unknown"
-            pcall(function() local ts = game:GetService("TeleportService"); local info = ts:GetLocalPlayerTeleportData(); if info and info.region then region = info.region end end)
-            if region == "Unknown" then pcall(function() local ping = game:GetService("Stats").Network.ServerStatsItem["Data Ping"]:GetValue(); if ping < 60 then region = "US East" elseif ping < 120 then region = "US West" elseif ping < 200 then region = "EU" elseif ping < 280 then region = "Asia" else region = "OCE / SA" end; region = region.." (~"..math.floor(ping + 0.5).."ms)" end) end
-            if region == "Unknown" then pcall(function() local code = game:GetService("LocalizationService"):GetCountryRegionForPlayerAsync(player); if code then region = code.." (your region)" end end) end
-            regV.Text = "Region: "..region
-        end)
-        local cc = mkCard(UI.HT, UDim2.new(0,W_L3,0,90), UDim2.new(0,0,0,95)); mkHdr(cc,"CREDITS",6)
-        L("Nax  /  @Pweck_.",  cc,UDim2.new(1,-20,0,14),UDim2.new(0,9,0,25),"White",Enum.TextXAlignment.Left,Enum.Font.GothamBold,11); L("Lead Dev & UI", cc,UDim2.new(1,-20,0,14),UDim2.new(0,9,0,40),"Gray", Enum.TextXAlignment.Left,Enum.Font.GothamMedium,10)
-        L("Exodius  /  @ex0dius.",cc,UDim2.new(1,-20,0,14),UDim2.new(0,9,0,60),"White",Enum.TextXAlignment.Left,Enum.Font.GothamBold,11); L("Creative Vision", cc,UDim2.new(1,-20,0,14),UDim2.new(0,9,0,75),"Gray", Enum.TextXAlignment.Left,Enum.Font.GothamMedium,10)
-        local ch = mkCard(UI.HT, UDim2.new(0,W_L3,0,95), UDim2.new(0,0,0,195)); mkHdr(ch,"CHANGELOG v1.3.0",6)
-        for i, e in ipairs({{C.Green, "+","Config Save/Load System"},{C.Green, "+","Custom Theme Builder"},{C.Green, "+","Server Region Detection"}}) do
-            local row = Instance.new("Frame"); row.Size=UDim2.new(1,-12,0,14); row.Position=UDim2.new(0,6,0,25+(i-1)*20); row.BackgroundTransparency=1; row.Parent=ch
-            local tg = L(e[2],row,UDim2.new(0,10,1,0),UDim2.new(0,0,0,0),"Gray",Enum.TextXAlignment.Left,Enum.Font.GothamBold,11); tg.TextColor3=e[1]; L(e[3],row,UDim2.new(1,-12,1,0),UDim2.new(0,14,0,0),"Gray",Enum.TextXAlignment.Left,Enum.Font.Gotham,10).TextWrapped=true
+        local sc=mkCard(UI.HT,UDim2.new(0,W_L3,0,85),UDim2.new(0,0,0,0)); mkHdr(sc,"SERVER INFO",6)
+        local sidV=mkRow(sc,"#","ID: loading...",25)
+        local rawSid=game.JobId~="" and game.JobId or "Studio"
+        sidV.Text="ID: "..string.sub(rawSid,1,12).."..."
+        local sidBtn=Instance.new("TextButton"); sidBtn.Size=UDim2.new(1,0,1,0); sidBtn.BackgroundTransparency=1; sidBtn.Text=""; sidBtn.Parent=sidV
+        sidBtn.MouseButton1Click:Connect(function() pcall(function() setclipboard(tostring(rawSid)) end); sidV.Text="Copied to clipboard!"; task.delay(1.5,function() sidV.Text="ID: "..string.sub(rawSid,1,12).."..." end) end)
+        local regV=mkRow(sc,"@","Region: detecting...",45)
+        local ageV=mkRow(sc,"T","Uptime: --",65)
+        S.RS.Heartbeat:Connect(function() local u=workspace.DistributedGameTime; local d=math.floor(u/86400); local h=math.floor((u%86400)/3600); local m=math.floor((u%3600)/60); local s=math.floor(u%60); if d>0 then ageV.Text=string.format("Uptime: %dd %02d:%02d:%02d",d,h,m,s) else ageV.Text=string.format("Uptime: %02d:%02d:%02d",h,m,s) end end)
+        task.spawn(function() local region="Unknown"; pcall(function() local ts=game:GetService("TeleportService"); local info=ts:GetLocalPlayerTeleportData(); if info and info.region then region=info.region end end); if region=="Unknown" then pcall(function() local ping=game:GetService("Stats").Network.ServerStatsItem["Data Ping"]:GetValue(); if ping<60 then region="US East" elseif ping<120 then region="US West" elseif ping<200 then region="EU" elseif ping<280 then region="Asia" else region="OCE / SA" end; region=region.." (~"..math.floor(ping+0.5).."ms)" end) end; if region=="Unknown" then pcall(function() local code=game:GetService("LocalizationService"):GetCountryRegionForPlayerAsync(player); if code then region=code.." (your region)" end end) end; regV.Text="Region: "..region end)
+        local cc=mkCard(UI.HT,UDim2.new(0,W_L3,0,90),UDim2.new(0,0,0,95)); mkHdr(cc,"CREDITS",6)
+        L("Nax  /  @Pweck_.",cc,UDim2.new(1,-20,0,14),UDim2.new(0,9,0,25),"White",Enum.TextXAlignment.Left,Enum.Font.GothamBold,11); L("Lead Dev & UI",cc,UDim2.new(1,-20,0,14),UDim2.new(0,9,0,40),"Gray",Enum.TextXAlignment.Left,Enum.Font.GothamMedium,10)
+        L("Exodius  /  @ex0dius.",cc,UDim2.new(1,-20,0,14),UDim2.new(0,9,0,60),"White",Enum.TextXAlignment.Left,Enum.Font.GothamBold,11); L("Creative Vision",cc,UDim2.new(1,-20,0,14),UDim2.new(0,9,0,75),"Gray",Enum.TextXAlignment.Left,Enum.Font.GothamMedium,10)
+        local ch=mkCard(UI.HT,UDim2.new(0,W_L3,0,95),UDim2.new(0,0,0,195)); mkHdr(ch,"CHANGELOG v1.4.0",6)
+        for i,e in ipairs({{C.Green,"+","Improved HUD (bigger logo, coloured bars)"},{C.Green,"+","Tab icons + active underline"},{C.Green,"+","Config: clipboard import/export + badges"}}) do
+            local row=Instance.new("Frame"); row.Size=UDim2.new(1,-12,0,14); row.Position=UDim2.new(0,6,0,25+(i-1)*20); row.BackgroundTransparency=1; row.Parent=ch
+            local tg=L(e[2],row,UDim2.new(0,10,1,0),UDim2.new(0,0,0,0),"Gray",Enum.TextXAlignment.Left,Enum.Font.GothamBold,11); tg.TextColor3=e[1]; L(e[3],row,UDim2.new(1,-12,1,0),UDim2.new(0,14,0,0),"Gray",Enum.TextXAlignment.Left,Enum.Font.Gotham,10).TextWrapped=true
         end
-        local dbtn = Instance.new("TextButton"); dbtn.Size=UDim2.new(0,W_L3,0,25); dbtn.Position=UDim2.new(0,0,1,-25); dbtn.BackgroundColor3=Color3.fromRGB(88,101,242); dbtn.BackgroundTransparency=0.25; dbtn.BorderSizePixel=0; dbtn.Text="Join the Discord"; dbtn.Font=Enum.Font.GothamBold; dbtn.TextSize=11; dbtn.TextColor3=Color3.new(1,1,1); dbtn.Parent=UI.HT; Instance.new("UICorner",dbtn).CornerRadius=UDim.new(0,6)
+        local dbtn=Instance.new("TextButton"); dbtn.Size=UDim2.new(0,W_L3,0,25); dbtn.Position=UDim2.new(0,0,1,-25); dbtn.BackgroundColor3=Color3.fromRGB(88,101,242); dbtn.BackgroundTransparency=0.25; dbtn.BorderSizePixel=0; dbtn.Text="Join the Discord"; dbtn.Font=Enum.Font.GothamBold; dbtn.TextSize=11; dbtn.TextColor3=Color3.new(1,1,1); dbtn.Parent=UI.HT; Instance.new("UICorner",dbtn).CornerRadius=UDim.new(0,6)
         dbtn.MouseEnter:Connect(function() S.Tween:Create(dbtn,TweenInfo.new(0.12),{BackgroundTransparency=0}):Play() end); dbtn.MouseLeave:Connect(function() S.Tween:Create(dbtn,TweenInfo.new(0.12),{BackgroundTransparency=0.25}):Play() end); dbtn.MouseButton1Click:Connect(function() pcall(function() setclipboard("https://discord.gg/J8QNurem") end); dbtn.Text="Link Copied!"; task.delay(2,function() dbtn.Text="Join the Discord" end) end)
-        
-        local pcrd = mkCard(UI.HT,UDim2.new(0,W_M3,0,TAB_IH),UDim2.new(0,W_L3+10,0,0)); L("PLAYERS IN SERVER",pcrd,UDim2.new(0,130,0,13),UDim2.new(0,10,0,6),"Accent",Enum.TextXAlignment.Left,Enum.Font.GothamBold,10)
-        local hCntFrame = Instance.new("Frame"); hCntFrame.Size=UDim2.new(0,80,0,16); hCntFrame.Position=UDim2.new(1,-12,0,5); hCntFrame.AnchorPoint=Vector2.new(1,0); hCntFrame.BackgroundTransparency=1; hCntFrame.Parent=pcrd
-        local hCntLayout = Instance.new("UIListLayout"); hCntLayout.FillDirection=Enum.FillDirection.Horizontal; hCntLayout.HorizontalAlignment=Enum.HorizontalAlignment.Right; hCntLayout.VerticalAlignment=Enum.VerticalAlignment.Center; hCntLayout.Padding=UDim.new(0,6); hCntLayout.Parent=hCntFrame
-        local hCnt = Instance.new("TextLabel"); hCnt.BackgroundTransparency=1; hCnt.TextColor3=C.Gray; hCnt.Font=Enum.Font.GothamMedium; hCnt.TextSize=10; hCnt.Text="0"; hCnt.Size=UDim2.new(0,0,1,0); hCnt.AutomaticSize=Enum.AutomaticSize.X; hCnt.LayoutOrder=2; hCnt.Parent=hCntFrame
-        local hDot = Instance.new("Frame"); hDot.Size=UDim2.new(0,6,0,6); hDot.BackgroundColor3=C.Green; hDot.BorderSizePixel=0; hDot.LayoutOrder=1; hDot.Parent=hCntFrame; Instance.new("UICorner",hDot).CornerRadius=UDim.new(1,0); S.Tween:Create(hDot,TweenInfo.new(1.1,Enum.EasingStyle.Sine,Enum.EasingDirection.InOut,-1,true),{BackgroundTransparency=0.55}):Play(); mkDiv(pcrd,22,1)
-        local psf = Instance.new("ScrollingFrame"); psf.Size=UDim2.new(1,-8,0,TAB_IH-28); psf.Position=UDim2.new(0,4,0,26); psf.BackgroundTransparency=1; psf.BorderSizePixel=0; psf.ScrollBarThickness=2; psf.ScrollBarImageColor3=C.Accent; psf.CanvasSize=UDim2.new(0,0,0,0); psf.AutomaticCanvasSize=Enum.AutomaticSize.Y; psf.ClipsDescendants=true; psf.Parent=pcrd; Instance.new("UIListLayout",psf).Padding=UDim.new(0,2)
 
-        local profCard = mkCard(UI.HT,UDim2.new(0,W_R3,0,TAB_IH),UDim2.new(0,W_L3+W_M3+20,0,0)); L("PROFILE",profCard,UDim2.new(0,100,0,13),UDim2.new(0,10,0,6),"Accent",Enum.TextXAlignment.Left,Enum.Font.GothamBold,10); mkDiv(profCard,22,1)
-        local backBtn = Instance.new("TextButton"); backBtn.Size=UDim2.new(0,40,0,13); backBtn.Position=UDim2.new(1,-45,0,6); backBtn.BackgroundTransparency=1; backBtn.Text="<- Back"; backBtn.Font=Enum.Font.GothamMedium; backBtn.TextSize=10; backBtn.TextColor3=C.Accent; backBtn.Visible=false; backBtn.Parent=profCard
-        local profAv = Instance.new("ImageLabel"); profAv.Size=UDim2.new(0,70,0,70); profAv.Position=UDim2.new(0.5,0,0,35); profAv.AnchorPoint=Vector2.new(0.5,0); profAv.BackgroundColor3=C.Bg; profAv.BorderSizePixel=0; profAv.Parent=profCard; Instance.new("UICorner",profAv).CornerRadius=UDim.new(1,0)
-        local avRing = Instance.new("UIStroke"); avRing.Thickness=2; avRing.Transparency=0.28; avRing.Parent=profAv; track(avRing,"Color","Accent")
-        local pDN = Instance.new("TextLabel"); pDN.Size=UDim2.new(1,-8,0,20); pDN.Position=UDim2.new(0,4,0,110); pDN.BackgroundTransparency=1; pDN.Font=Enum.Font.GothamBold; pDN.TextSize=15; pDN.TextXAlignment=Enum.TextXAlignment.Center; pDN.TextTruncate=Enum.TextTruncate.AtEnd; pDN.Parent=profCard
-        local pUN = Instance.new("TextLabel"); pUN.Size=UDim2.new(1,-8,0,14); pUN.Position=UDim2.new(0,4,0,130); pUN.BackgroundTransparency=1; pUN.Font=Enum.Font.GothamMedium; pUN.TextSize=12; pUN.TextXAlignment=Enum.TextXAlignment.Center; pUN.TextTruncate=Enum.TextTruncate.AtEnd; pUN.TextColor3=C.Gray; pUN.Parent=profCard
-        local profileLabels = {}; local PY = 160
-        for _, stat in ipairs({{lbl="USER ID",k="uid"},{lbl="ACCOUNT AGE",k="age"},{lbl="GROUP RANK",k="grk"},{lbl="GROUP ROLE",k="grl"},{lbl="JOIN YEAR",k="jyn"}}) do
+        local pcrd=mkCard(UI.HT,UDim2.new(0,W_M3,0,TAB_IH),UDim2.new(0,W_L3+10,0,0)); L("PLAYERS IN SERVER",pcrd,UDim2.new(0,130,0,13),UDim2.new(0,10,0,6),"Accent",Enum.TextXAlignment.Left,Enum.Font.GothamBold,10)
+        local hCntFrame=Instance.new("Frame"); hCntFrame.Size=UDim2.new(0,80,0,16); hCntFrame.Position=UDim2.new(1,-12,0,5); hCntFrame.AnchorPoint=Vector2.new(1,0); hCntFrame.BackgroundTransparency=1; hCntFrame.Parent=pcrd
+        local hCntLayout=Instance.new("UIListLayout"); hCntLayout.FillDirection=Enum.FillDirection.Horizontal; hCntLayout.HorizontalAlignment=Enum.HorizontalAlignment.Right; hCntLayout.VerticalAlignment=Enum.VerticalAlignment.Center; hCntLayout.Padding=UDim.new(0,6); hCntLayout.Parent=hCntFrame
+        local hCnt=Instance.new("TextLabel"); hCnt.BackgroundTransparency=1; hCnt.TextColor3=C.Gray; hCnt.Font=Enum.Font.GothamMedium; hCnt.TextSize=10; hCnt.Text="0"; hCnt.Size=UDim2.new(0,0,1,0); hCnt.AutomaticSize=Enum.AutomaticSize.X; hCnt.LayoutOrder=2; hCnt.Parent=hCntFrame
+        local hDot=Instance.new("Frame"); hDot.Size=UDim2.new(0,6,0,6); hDot.BackgroundColor3=C.Green; hDot.BorderSizePixel=0; hDot.LayoutOrder=1; hDot.Parent=hCntFrame; Instance.new("UICorner",hDot).CornerRadius=UDim.new(1,0); S.Tween:Create(hDot,TweenInfo.new(1.1,Enum.EasingStyle.Sine,Enum.EasingDirection.InOut,-1,true),{BackgroundTransparency=0.55}):Play(); mkDiv(pcrd,22,1)
+        local psf=Instance.new("ScrollingFrame"); psf.Size=UDim2.new(1,-8,0,TAB_IH-28); psf.Position=UDim2.new(0,4,0,26); psf.BackgroundTransparency=1; psf.BorderSizePixel=0; psf.ScrollBarThickness=2; psf.ScrollBarImageColor3=C.Accent; psf.CanvasSize=UDim2.new(0,0,0,0); psf.AutomaticCanvasSize=Enum.AutomaticSize.Y; psf.ClipsDescendants=true; psf.Parent=pcrd; Instance.new("UIListLayout",psf).Padding=UDim.new(0,2)
+
+        local profCard=mkCard(UI.HT,UDim2.new(0,W_R3,0,TAB_IH),UDim2.new(0,W_L3+W_M3+20,0,0)); L("PROFILE",profCard,UDim2.new(0,100,0,13),UDim2.new(0,10,0,6),"Accent",Enum.TextXAlignment.Left,Enum.Font.GothamBold,10); mkDiv(profCard,22,1)
+        local backBtn=Instance.new("TextButton"); backBtn.Size=UDim2.new(0,40,0,13); backBtn.Position=UDim2.new(1,-45,0,6); backBtn.BackgroundTransparency=1; backBtn.Text="<- Back"; backBtn.Font=Enum.Font.GothamMedium; backBtn.TextSize=10; backBtn.TextColor3=C.Accent; backBtn.Visible=false; backBtn.Parent=profCard
+        local profAv=Instance.new("ImageLabel"); profAv.Size=UDim2.new(0,70,0,70); profAv.Position=UDim2.new(0.5,0,0,35); profAv.AnchorPoint=Vector2.new(0.5,0); profAv.BackgroundColor3=C.Bg; profAv.BorderSizePixel=0; profAv.Parent=profCard; Instance.new("UICorner",profAv).CornerRadius=UDim.new(1,0)
+        local avRing=Instance.new("UIStroke"); avRing.Thickness=2; avRing.Transparency=0.28; avRing.Parent=profAv; track(avRing,"Color","Accent")
+        local pDN=Instance.new("TextLabel"); pDN.Size=UDim2.new(1,-8,0,20); pDN.Position=UDim2.new(0,4,0,110); pDN.BackgroundTransparency=1; pDN.Font=Enum.Font.GothamBold; pDN.TextSize=15; pDN.TextXAlignment=Enum.TextXAlignment.Center; pDN.TextTruncate=Enum.TextTruncate.AtEnd; pDN.Parent=profCard
+        local pUN=Instance.new("TextLabel"); pUN.Size=UDim2.new(1,-8,0,14); pUN.Position=UDim2.new(0,4,0,130); pUN.BackgroundTransparency=1; pUN.Font=Enum.Font.GothamMedium; pUN.TextSize=12; pUN.TextXAlignment=Enum.TextXAlignment.Center; pUN.TextTruncate=Enum.TextTruncate.AtEnd; pUN.TextColor3=C.Gray; pUN.Parent=profCard
+        local profileLabels={}; local PY=160
+        for _,stat in ipairs({{lbl="USER ID",k="uid"},{lbl="ACCOUNT AGE",k="age"},{lbl="GROUP RANK",k="grk"},{lbl="GROUP ROLE",k="grl"},{lbl="JOIN YEAR",k="jyn"}}) do
             L(stat.lbl,profCard,UDim2.new(0,100,0,16),UDim2.new(0,15,0,PY),"Gray",Enum.TextXAlignment.Left,Enum.Font.GothamBold,10)
-            local sv_l = L("--",profCard,UDim2.new(1,-130,0,16),UDim2.new(0,115,0,PY),"White",Enum.TextXAlignment.Right,Enum.Font.GothamMedium,11)
+            local sv_l=L("--",profCard,UDim2.new(1,-130,0,16),UDim2.new(0,115,0,PY),"White",Enum.TextXAlignment.Right,Enum.Font.GothamMedium,11)
             profileLabels[stat.k]=sv_l; PY=PY+25
         end
         local function loadProf(tgt,isOther)
             profAv.Image=""; task.spawn(function() local ok2,img=pcall(function() return S.Players:GetUserThumbnailAsync(tgt.UserId,Enum.ThumbnailType.HeadShot,Enum.ThumbnailSize.Size100x100) end); if ok2 then profAv.Image=img end end)
             pDN.Text=tgt.DisplayName; pUN.Text="@"..tgt.Name; pDN.TextColor3=isOther and C.White or C.Accent
             local age=tgt.AccountAge; local ageS=age<30 and age.."d" or age<365 and math.floor(age/30).."mo" or math.floor(age/365).."yr"
-            if profileLabels["uid"] then profileLabels["uid"].Text=tostring(tgt.UserId) end; if profileLabels["age"] then profileLabels["age"].Text=ageS end; if profileLabels["jyn"] then profileLabels["jyn"].Text="~"..tostring(os.date("*t").year-math.floor(age/365)) end
+            if profileLabels["uid"] then profileLabels["uid"].Text=tostring(tgt.UserId) end
+            if profileLabels["age"] then profileLabels["age"].Text=ageS end
+            if profileLabels["jyn"] then profileLabels["jyn"].Text="~"..tostring(os.date("*t").year-math.floor(age/365)) end
             fetchRank(tgt,function(rv,rn)
                 if profileLabels["grk"] then profileLabels["grk"].Text=tostring(rv); profileLabels["grk"].TextColor3=rv>=10 and C.Red or (rv>0 and C.Accent or C.White) end
                 if profileLabels["grl"] then profileLabels["grl"].Text=rv>0 and rn or "None"; profileLabels["grl"].TextColor3=rv>0 and C.Green or C.White end
@@ -543,47 +815,41 @@ local function LoadNaxiumHub()
 
         local function buildRow(p)
             local row=Instance.new("TextButton"); row.Size=UDim2.new(1,-4,0,26); row.BackgroundColor3=p==player and Color3.fromRGB(26,44,68) or Color3.fromRGB(18,24,34); row.BackgroundTransparency=0.38; row.BorderSizePixel=0; row.Text=""; row.AutoButtonColor=false; row.Parent=psf; Instance.new("UICorner",row).CornerRadius=UDim.new(0,5)
-            row.MouseEnter:Connect(function() if p~=player then S.Tween:Create(row,TweenInfo.new(0.12),{BackgroundTransparency=0.12}):Play() end end); row.MouseLeave:Connect(function() S.Tween:Create(row,TweenInfo.new(0.12),{BackgroundTransparency=0.38}):Play() end); row.MouseButton1Click:Connect(function() loadProf(p,p~=player); local sk=profCard:FindFirstChildOfClass("UIStroke"); if sk then S.Tween:Create(sk,TweenInfo.new(0.12),{Transparency=0}):Play(); task.delay(0.3,function() S.Tween:Create(sk,TweenInfo.new(0.4),{Transparency=0.82}):Play() end) end end)
+            row.MouseEnter:Connect(function() if p~=player then S.Tween:Create(row,TweenInfo.new(0.12),{BackgroundTransparency=0.12}):Play() end end); row.MouseLeave:Connect(function() S.Tween:Create(row,TweenInfo.new(0.12),{BackgroundTransparency=0.38}):Play() end)
+            row.MouseButton1Click:Connect(function() loadProf(p,p~=player); local sk=profCard:FindFirstChildOfClass("UIStroke"); if sk then S.Tween:Create(sk,TweenInfo.new(0.12),{Transparency=0}):Play(); task.delay(0.3,function() S.Tween:Create(sk,TweenInfo.new(0.4),{Transparency=0.82}):Play() end) end end)
             local av=Instance.new("ImageLabel"); av.Size=UDim2.new(0,20,0,20); av.Position=UDim2.new(0,3,0.5,0); av.AnchorPoint=Vector2.new(0,0.5); av.BackgroundColor3=C.Bg; av.BorderSizePixel=0; av.Parent=row; Instance.new("UICorner",av).CornerRadius=UDim.new(1,0)
             task.spawn(function() local ok2,img=pcall(function() return S.Players:GetUserThumbnailAsync(p.UserId,Enum.ThumbnailType.HeadShot,Enum.ThumbnailSize.Size48x48) end); if ok2 then av.Image=img end end)
             local nl=Instance.new("TextLabel"); nl.Size=UDim2.new(1,-130,1,0); nl.Position=UDim2.new(0,27,0,0); nl.BackgroundTransparency=1; nl.Text=p.DisplayName; nl.TextColor3=p==player and C.Accent or C.White; nl.Font=p==player and Enum.Font.GothamBold or Enum.Font.GothamMedium; nl.TextSize=11; nl.TextXAlignment=Enum.TextXAlignment.Left; nl.TextTruncate=Enum.TextTruncate.AtEnd; nl.Parent=row
             local rl=Instance.new("TextLabel"); rl.Size=UDim2.new(0,100,1,0); rl.Position=UDim2.new(1,-105,0,0); rl.BackgroundTransparency=1; rl.Text="..."; rl.TextColor3=C.Gray; rl.Font=Enum.Font.GothamMedium; rl.TextSize=10; rl.TextXAlignment=Enum.TextXAlignment.Right; rl.TextTruncate=Enum.TextTruncate.AtEnd; rl.Parent=row
-            
-            fetchRank(p, function(rv, rn)
+            fetchRank(p,function(rv,rn)
                 if not row or not row.Parent then return end
-                local isMe = (p == player)
-                local isNaxiumUser = State.knownNaxiumUsers[p] == true 
-                local prefix = ""
-                
-                if isMe then prefix = "YOU  |  " elseif isNaxiumUser then prefix = "⭐ " end
-                
-                rl.Text = prefix .. rn
-                rl.TextColor3 = rv > 0 and C.White or C.Gray
-                if isMe or isNaxiumUser then rl.TextColor3 = C.Yellow end 
+                local prefix = (p==player) and "YOU  |  " or (State.knownNaxiumUsers[p]==true and "⭐ " or "")
+                rl.Text=prefix..rn; rl.TextColor3=(p==player or State.knownNaxiumUsers[p]) and C.Yellow or (rv>0 and C.White or C.Gray)
             end)
         end
 
-        refreshList = function()
+        refreshList=function()
             for _,c in ipairs(psf:GetChildren()) do if c:IsA("Frame") or c:IsA("TextButton") then c:Destroy() end end
             local all=S.Players:GetPlayers(); table.sort(all,function(a,b) if a==player then return true end if b==player then return false end return a.DisplayName:lower()<b.DisplayName:lower() end)
             for _,p in ipairs(all) do buildRow(p) end; hCnt.Text=tostring(#all)
         end
         refreshList()
-        S.Players.PlayerAdded:Connect(function() task.wait(1); refreshList() end); S.Players.PlayerRemoving:Connect(function(rp) task.wait(0.1); if pUN.Text=="@"..rp.Name then loadProf(player,false) end; refreshList() end)
+        S.Players.PlayerAdded:Connect(function() task.wait(1); refreshList() end)
+        S.Players.PlayerRemoving:Connect(function(rp) task.wait(0.1); if pUN.Text=="@"..rp.Name then loadProf(player,false) end; refreshList() end)
     end
 
     -- ============================================================
     -- SAFE TAB
     -- ============================================================
     do
-        local camCard = mkCard(UI.SAT,UDim2.new(0,W_HALF,0,105),UDim2.new(0,0,0,0)); mkHdr(camCard,"CAMERA",6)
+        local camCard=mkCard(UI.SAT,UDim2.new(0,W_HALF,0,105),UDim2.new(0,0,0,0)); mkHdr(camCard,"CAMERA",6)
         L("Unlock zoom distance. Uses RenderStepped to fight CoS camera reset.",camCard,UDim2.new(1,-20,0,26),UDim2.new(0,10,0,25),"Gray",Enum.TextXAlignment.Left,Enum.Font.Gotham,10)
-        local camZoomEnabled = false; local camMaxDist = 800
+        local camZoomEnabled=false; local camMaxDist=800
         mkTog(camCard,"Unlock Camera Distance",58,"cam_en",false,function(v) camZoomEnabled=v; if not v then pcall(function() player.CameraMaxZoomDistance=400; player.CameraMinZoomDistance=0.5 end) end end,"Cam")
         mkSlider(camCard,"Max Zoom Distance",86,"cam_dist",400,5000,800,"%.0f",function(v) camMaxDist=v end)
         S.RS.RenderStepped:Connect(function() if camZoomEnabled then pcall(function() player.CameraMaxZoomDistance=camMaxDist; player.CameraMinZoomDistance=0.5 end) end end)
 
-        local proxCard = mkCard(UI.SAT,UDim2.new(0,W_HALF,0,105),UDim2.new(0,W_HALF+10,0,0)); mkHdr(proxCard,"PROXIMITY ALERTS",6)
+        local proxCard=mkCard(UI.SAT,UDim2.new(0,W_HALF,0,105),UDim2.new(0,W_HALF+10,0,0)); mkHdr(proxCard,"PROXIMITY ALERTS",6)
         L("Alerts you when a player gets too close.",proxCard,UDim2.new(1,-20,0,13),UDim2.new(0,10,0,25),"Gray",Enum.TextXAlignment.Left,Enum.Font.Gotham,10)
         local proxEnabled=false; local proxRadius=30; local proxAlerted={}
         local proxSnd=Instance.new("Sound"); proxSnd.SoundId="rbxassetid://8769398305"; proxSnd.Volume=0.8; proxSnd.Parent=S.Sound
@@ -601,11 +867,7 @@ local function LoadNaxiumHub()
             for _,p in ipairs(S.Players:GetPlayers()) do
                 if p~=player then
                     local pr=p.Character and p.Character:FindFirstChild("HumanoidRootPart")
-                    if pr then
-                        local dist=(myRoot.Position-pr.Position).Magnitude
-                        if dist<=proxRadius and not proxAlerted[p] then proxAlerted[p]=true; showProxAlert(p)
-                        elseif dist>proxRadius+10 then proxAlerted[p]=nil end
-                    end
+                    if pr then local dist=(myRoot.Position-pr.Position).Magnitude; if dist<=proxRadius and not proxAlerted[p] then proxAlerted[p]=true; showProxAlert(p) elseif dist>proxRadius+10 then proxAlerted[p]=nil end end
                 end
             end
         end)
@@ -627,7 +889,6 @@ local function LoadNaxiumHub()
         mkSlider(espCard,"Refresh Rate",EY,"esp_ref",0.05,2.0,0.1,"%.2fs",function(v) esp.refreshRate=v end) EY=EY+40
         mkSlider(espCard,"Max Distance",EY,"esp_maxd",50,15000,15000,"%.0fm",function(v) esp.maxDist=v end) EY=EY+40
         mkSlider(espCard,"Text Size",EY,"esp_txt",8,36,14,"%.0f",function(v) esp.textSize=v end)
-
         local glCard=mkCard(UI.VT,UDim2.new(0,W_HALF,0,140),UDim2.new(0,W_HALF+10,0,0)); mkHdr(glCard,"ESP COLOR",6)
         local bW=210; local glSw=Instance.new("Frame"); glSw.Size=UDim2.new(0,100,0,90); glSw.Position=UDim2.new(0,260,0,30); glSw.BackgroundColor3=esp.glowColor; glSw.BorderSizePixel=0; glSw.Parent=glCard; Instance.new("UICorner",glSw).CornerRadius=UDim.new(0,6)
         local glSwS=Instance.new("UIStroke"); glSwS.Thickness=2; glSwS.Transparency=0.5; glSwS.Color=C.White; glSwS.Parent=glSw
@@ -639,19 +900,15 @@ local function LoadNaxiumHub()
             for _,d in pairs(espData) do if d.hl then d.hl.FillColor=c; d.hl.OutlineColor=c end end
         end
         gH=ld("esp_cH",gH); gS=ld("esp_cS",gS); gV=ld("esp_cV",gV); updGlow()
-        
-        table.insert(State.ConfigElements, {key="esp_cH", default=gH, update=function(v) if v then gH=v; updGlow() end end})
-        table.insert(State.ConfigElements, {key="esp_cS", default=gS, update=function(v) if v then gS=v; updGlow() end end})
-        table.insert(State.ConfigElements, {key="esp_cV", default=gV, update=function(v) if v then gV=v; updGlow() end end})
-
-        local GY2=35; local eLabels = {"HUE","SAT","VAL"}; local eVals = {gH,gS,gV}; local eKeys = {"esp_cH","esp_cS","esp_cV"}
-        for j=1, 3 do
-            local jj = j
-            L(eLabels[jj],glCard,UDim2.new(0,30,0,14),UDim2.new(0,10,0,GY2),"Gray",Enum.TextXAlignment.Left,Enum.Font.GothamBold,10)
+        table.insert(State.ConfigElements,{key="esp_cH",default=gH,update=function(v) if v then gH=v; updGlow() end end})
+        table.insert(State.ConfigElements,{key="esp_cS",default=gS,update=function(v) if v then gS=v; updGlow() end end})
+        table.insert(State.ConfigElements,{key="esp_cV",default=gV,update=function(v) if v then gV=v; updGlow() end end})
+        local GY2=35; local eLabels={"HUE","SAT","VAL"}; local eVals={gH,gS,gV}; local eKeys={"esp_cH","esp_cS","esp_cV"}
+        for j=1,3 do
+            local jj=j; L(eLabels[jj],glCard,UDim2.new(0,30,0,14),UDim2.new(0,10,0,GY2),"Gray",Enum.TextXAlignment.Left,Enum.Font.GothamBold,10)
             local bf=Instance.new("Frame"); bf.Size=UDim2.new(0,bW,0,14); bf.Position=UDim2.new(0,40,0,GY2); bf.BackgroundTransparency=1; bf.Parent=glCard
-            tBar(bf,0,bW,eVals[jj],eKeys[jj],eVals[jj], function(v) if jj==1 then gH=v elseif jj==2 then gS=v else gV=v end; updGlow() end); GY2=GY2+30
+            tBar(bf,0,bW,eVals[jj],eKeys[jj],eVals[jj],function(v) if jj==1 then gH=v elseif jj==2 then gS=v else gV=v end; updGlow() end); GY2=GY2+30
         end
-
         local function getRoot(p) local c=p.Character; if not c then return nil end; return c:FindFirstChild("HumanoidRootPart") or c.PrimaryPart end
         local function setupESP(p)
             local hl=Instance.new("Highlight"); hl.FillTransparency=0.55; hl.OutlineTransparency=0.05; hl.FillColor=esp.glowColor; hl.OutlineColor=esp.glowColor; hl.Enabled=false
@@ -677,8 +934,7 @@ local function LoadNaxiumHub()
                         local head=p.Character:FindFirstChild("Head") or p.Character.PrimaryPart
                         if head and d.bb.Parent~=p.Character then d.bb.Parent=p.Character; d.bb.Adornee=head end
                         local dist=999999; if myRoot then local r=getRoot(p); if r then dist=math.floor((myRoot.Position-r.Position).Magnitude) end end
-                        local vis=dist<=esp.maxDist
-                        d.hl.Enabled=esp.glowEnabled and vis; d.bb.Enabled=vis and (esp.showUser or esp.showDisplay or esp.showDist)
+                        local vis=dist<=esp.maxDist; d.hl.Enabled=esp.glowEnabled and vis; d.bb.Enabled=vis and (esp.showUser or esp.showDisplay or esp.showDist)
                         d.hl.FillColor=esp.glowColor; d.hl.OutlineColor=esp.glowColor
                         local nt=""; if esp.showDisplay and esp.showUser then nt=p.DisplayName.." (@"..p.Name..")" elseif esp.showDisplay then nt=p.DisplayName elseif esp.showUser then nt="@"..p.Name end
                         d.nl.Text=nt; d.nl.TextColor3=Color3.new(1,1,1); d.nl.TextSize=esp.textSize; d.dl.TextSize=math.max(8,esp.textSize-2)
@@ -686,186 +942,364 @@ local function LoadNaxiumHub()
                     else removeESP(p) end
                 end
             end
-            for p,_ in pairs(espData) do if not p.Parent then removeESP(p) end end
+            for p in pairs(espData) do if not p.Parent then removeESP(p) end end
         end)
         S.Players.PlayerRemoving:Connect(removeESP)
     end
 
     -- ============================================================
-    -- THEMES TAB
+    -- THEMES TAB  (IMPROVED: custom image slots with save/load)
     -- ============================================================
     do
-        local THT_L = mkCard(UI.THT, UDim2.new(0, W_HALF, 0, 145), UDim2.new(0, 0, 0, 0)); mkHdr(THT_L, "BACKGROUND IMAGE", 6)
-        UI.THT.ZIndex = 50 -- Priority rendering for the tooltip!
-        
-        local bgThemes = {{name="Naxius Theme", id="97654622883467"}, {name="Samurai", id="80311829005401"}}
-        local openBgBtn = Instance.new("TextButton"); openBgBtn.Size = UDim2.new(1, -20, 0, 24); openBgBtn.Position = UDim2.new(0, 10, 0, 30); openBgBtn.BackgroundColor3 = C.Accent; openBgBtn.BackgroundTransparency = 0.35; openBgBtn.BorderSizePixel = 0; openBgBtn.Text = "None  v"; openBgBtn.Font = Enum.Font.GothamBold; openBgBtn.TextSize = 11; openBgBtn.TextColor3 = Color3.new(1,1,1); openBgBtn.Parent = THT_L; Instance.new("UICorner", openBgBtn).CornerRadius = UDim.new(0, 5)
+        UI.THT.ZIndex=50
+        local THT_L=mkCard(UI.THT,UDim2.new(0,W_HALF,0,200),UDim2.new(0,0,0,0)); mkHdr(THT_L,"BACKGROUND IMAGE",6)
 
-        local bgPopup = nil
-        local function closeBgPopup() if bgPopup and bgPopup.Parent then bgPopup:Destroy(); bgPopup = nil end end
+        -- ── Preset dropdown ──
+        local bgThemes={{name="Naxius Theme",id="97654622883467"},{name="Samurai",id="80311829005401"}}
+        local openBgBtn=Instance.new("TextButton"); openBgBtn.Size=UDim2.new(1,-20,0,24); openBgBtn.Position=UDim2.new(0,10,0,30); openBgBtn.BackgroundColor3=C.Accent; openBgBtn.BackgroundTransparency=0.35; openBgBtn.BorderSizePixel=0; openBgBtn.Text="None  v"; openBgBtn.Font=Enum.Font.GothamBold; openBgBtn.TextSize=11; openBgBtn.TextColor3=Color3.new(1,1,1); openBgBtn.Parent=THT_L; Instance.new("UICorner",openBgBtn).CornerRadius=UDim.new(0,5)
+
+        local bgPopup=nil
+        local function closeBgPopup() if bgPopup and bgPopup.Parent then bgPopup:Destroy(); bgPopup=nil end end
         openBgBtn.MouseButton1Click:Connect(function()
             if bgPopup and bgPopup.Parent then closeBgPopup(); return end
-            bgPopup = Instance.new("Frame"); bgPopup.Size = UDim2.new(1, -20, 0, (#bgThemes+2)*30+8); bgPopup.Position = UDim2.new(0, 10, 0, 60); bgPopup.BackgroundColor3 = C.Card; bgPopup.BackgroundTransparency = 0.05; bgPopup.BorderSizePixel = 0; bgPopup.ZIndex = 50; bgPopup.Parent = THT_L; Instance.new("UICorner", bgPopup).CornerRadius = UDim.new(0, 6)
-            local ps = Instance.new("UIStroke"); ps.Thickness = 1; ps.Transparency = 0.55; ps.Parent = bgPopup; track(ps, "Color", "Accent")
-            local ll2 = Instance.new("UIListLayout"); ll2.Padding = UDim.new(0, 2); ll2.Parent = bgPopup; local pad2 = Instance.new("UIPadding"); pad2.PaddingTop = UDim.new(0, 4); pad2.PaddingLeft = UDim.new(0, 4); pad2.PaddingRight = UDim.new(0, 4); pad2.Parent = bgPopup
-            local nr = Instance.new("TextButton"); nr.Size = UDim2.new(1, 0, 0, 28); nr.BackgroundColor3 = Color3.fromRGB(18,24,34); nr.BackgroundTransparency = 0.4; nr.BorderSizePixel = 0; nr.Text = "x  None"; nr.Font = Enum.Font.GothamMedium; nr.TextSize = 11; nr.TextColor3 = C.Gray; nr.TextXAlignment = Enum.TextXAlignment.Left; nr.Parent = bgPopup; Instance.new("UICorner", nr).CornerRadius = UDim.new(0, 5); local np = Instance.new("UIPadding"); np.PaddingLeft = UDim.new(0, 8); np.Parent = nr
-            nr.MouseButton1Click:Connect(function() UI.bgImg.Image = ""; sv("bg_img", ""); openBgBtn.Text = "None  v"; closeBgPopup() end)
-            for _, t in ipairs(bgThemes) do
-                local tr2 = Instance.new("TextButton"); tr2.Size = UDim2.new(1, 0, 0, 28); tr2.BackgroundColor3 = Color3.fromRGB(18,24,34); tr2.BackgroundTransparency = 0.4; tr2.BorderSizePixel = 0; tr2.Text = t.name; tr2.Font = Enum.Font.GothamMedium; tr2.TextSize = 11; tr2.TextColor3 = C.White; tr2.TextXAlignment = Enum.TextXAlignment.Left; tr2.Parent = bgPopup; Instance.new("UICorner", tr2).CornerRadius = UDim.new(0, 5); local tp = Instance.new("UIPadding"); tp.PaddingLeft = UDim.new(0, 8); tp.Parent = tr2
-                tr2.MouseEnter:Connect(function() S.Tween:Create(tr2, TweenInfo.new(0.1), {BackgroundTransparency=0.1}):Play() end); tr2.MouseLeave:Connect(function() S.Tween:Create(tr2, TweenInfo.new(0.1), {BackgroundTransparency=0.4}):Play() end)
-                tr2.MouseButton1Click:Connect(function() UI.bgImg.Image = "rbxassetid://"..t.id; sv("bg_img", UI.bgImg.Image); openBgBtn.Text = t.name.."  v"; closeBgPopup() end)
+            bgPopup=Instance.new("Frame"); bgPopup.Size=UDim2.new(1,-20,0,(#bgThemes+2)*30+8); bgPopup.Position=UDim2.new(0,10,0,60); bgPopup.BackgroundColor3=C.Card; bgPopup.BackgroundTransparency=0.05; bgPopup.BorderSizePixel=0; bgPopup.ZIndex=50; bgPopup.Parent=THT_L; Instance.new("UICorner",bgPopup).CornerRadius=UDim.new(0,6)
+            local ps=Instance.new("UIStroke"); ps.Thickness=1; ps.Transparency=0.55; ps.Parent=bgPopup; track(ps,"Color","Accent")
+            local ll2=Instance.new("UIListLayout"); ll2.Padding=UDim.new(0,2); ll2.Parent=bgPopup; local pad2=Instance.new("UIPadding"); pad2.PaddingTop=UDim.new(0,4); pad2.PaddingLeft=UDim.new(0,4); pad2.PaddingRight=UDim.new(0,4); pad2.Parent=bgPopup
+            local nr=Instance.new("TextButton"); nr.Size=UDim2.new(1,0,0,28); nr.BackgroundColor3=Color3.fromRGB(18,24,34); nr.BackgroundTransparency=0.4; nr.BorderSizePixel=0; nr.Text="x  None"; nr.Font=Enum.Font.GothamMedium; nr.TextSize=11; nr.TextColor3=C.Gray; nr.TextXAlignment=Enum.TextXAlignment.Left; nr.Parent=bgPopup; Instance.new("UICorner",nr).CornerRadius=UDim.new(0,5); local np=Instance.new("UIPadding"); np.PaddingLeft=UDim.new(0,8); np.Parent=nr
+            nr.MouseButton1Click:Connect(function() UI.bgImg.Image=""; sv("bg_img",""); openBgBtn.Text="None  v"; closeBgPopup() end)
+            for _,t in ipairs(bgThemes) do
+                local tr2=Instance.new("TextButton"); tr2.Size=UDim2.new(1,0,0,28); tr2.BackgroundColor3=Color3.fromRGB(18,24,34); tr2.BackgroundTransparency=0.4; tr2.BorderSizePixel=0; tr2.Text=t.name; tr2.Font=Enum.Font.GothamMedium; tr2.TextSize=11; tr2.TextColor3=C.White; tr2.TextXAlignment=Enum.TextXAlignment.Left; tr2.Parent=bgPopup; Instance.new("UICorner",tr2).CornerRadius=UDim.new(0,5); local tp=Instance.new("UIPadding"); tp.PaddingLeft=UDim.new(0,8); tp.Parent=tr2
+                tr2.MouseEnter:Connect(function() S.Tween:Create(tr2,TweenInfo.new(0.1),{BackgroundTransparency=0.1}):Play() end); tr2.MouseLeave:Connect(function() S.Tween:Create(tr2,TweenInfo.new(0.1),{BackgroundTransparency=0.4}):Play() end)
+                tr2.MouseButton1Click:Connect(function() UI.bgImg.Image="rbxassetid://"..t.id; updateBgScaling(UI.bgImg.Image); sv("bg_img",UI.bgImg.Image); openBgBtn.Text=t.name.."  v"; closeBgPopup() end)
             end
         end)
-        mkSlider(THT_L, "Image Opacity", 62, "bg_op", 0, 1, 0.3, "%.2f", function(v) UI.bgImg.ImageTransparency = 1-v end)
 
-        -- Custom Image Input & Tooltip Helper
-        local customImgBox = Instance.new("TextBox"); customImgBox.Size = UDim2.new(1, -45, 0, 26); customImgBox.Position = UDim2.new(0, 10, 0, 105); customImgBox.BackgroundColor3 = Color3.fromRGB(12, 16, 24); customImgBox.BackgroundTransparency = 0.2; customImgBox.BorderSizePixel = 0; customImgBox.PlaceholderText = "Paste Image ID here..."; customImgBox.Text = ""; customImgBox.Font = Enum.Font.GothamMedium; customImgBox.TextSize = 10; customImgBox.TextColor3 = C.White; customImgBox.PlaceholderColor3 = C.Gray; customImgBox.ClearTextOnFocus = false; customImgBox.Parent = THT_L; Instance.new("UICorner", customImgBox).CornerRadius = UDim.new(0, 5)
-        local cpad2 = Instance.new("UIPadding"); cpad2.PaddingLeft = UDim.new(0, 8); cpad2.Parent = customImgBox; local cboxStr = Instance.new("UIStroke"); cboxStr.Thickness = 1; cboxStr.Transparency = 0.7; cboxStr.Parent = customImgBox; track(cboxStr, "Color", "Accent")
-        customImgBox.FocusLost:Connect(function(enter) if enter then local id = customImgBox.Text:match("%d+"); if id then UI.bgImg.Image = "rbxassetid://"..id; sv("bg_img", UI.bgImg.Image); openBgBtn.Text = "Custom  v" else customImgBox.Text = "" end end end)
+        mkSlider(THT_L,"Image Opacity",62,"bg_op",0,1,0.3,"%.2f",function(v) UI.bgImg.ImageTransparency=1-v end)
 
-        local helpBtn = Instance.new("TextButton")
-        helpBtn.Size = UDim2.new(0, 20, 0, 20); helpBtn.Position = UDim2.new(1, -25, 0, 108); helpBtn.BackgroundTransparency = 1; helpBtn.Text = "?"; helpBtn.Font = Enum.Font.GothamBold; helpBtn.TextSize = 13; helpBtn.TextColor3 = C.Accent; helpBtn.ZIndex = 51; helpBtn.Parent = THT_L
-        
-        local helpPopup = Instance.new("Frame")
-        helpPopup.Size = UDim2.new(0, 240, 0, 70); helpPopup.Position = UDim2.new(1, -260, 0, 135); helpPopup.BackgroundColor3 = C.DkBg; helpPopup.BorderSizePixel = 0; helpPopup.Visible = false; helpPopup.ZIndex = 100; helpPopup.Parent = THT_L; Instance.new("UICorner", helpPopup).CornerRadius = UDim.new(0, 6)
-        local helpStr = Instance.new("UIStroke"); helpStr.Thickness = 1.5; helpStr.ZIndex = 100; helpStr.Parent = helpPopup; track(helpStr, "Color", "Accent")
-        local helpTxt = Instance.new("TextLabel"); helpTxt.Size = UDim2.new(1, -12, 1, -10); helpTxt.Position = UDim2.new(0, 6, 0, 5); helpTxt.BackgroundTransparency = 1; helpTxt.Text = "Must be an IMAGE ID, not a Decal ID!\n(Subtract numbers from the Decal ID until it works, or use BTRoblox)."; helpTxt.Font = Enum.Font.GothamMedium; helpTxt.TextSize = 10; helpTxt.TextColor3 = C.White; helpTxt.TextWrapped = true; helpTxt.ZIndex = 101; helpTxt.Parent = helpPopup
-        
-        helpBtn.MouseEnter:Connect(function() helpPopup.Visible = true; helpBtn.TextColor3 = C.White end)
-        helpBtn.MouseLeave:Connect(function() helpPopup.Visible = false; helpBtn.TextColor3 = C.Accent end)
+        -- ── Custom Image ID input ──
+        local customImgBox=Instance.new("TextBox"); customImgBox.Size=UDim2.new(1,-70,0,26); customImgBox.Position=UDim2.new(0,10,0,110); customImgBox.BackgroundColor3=Color3.fromRGB(12,16,24); customImgBox.BackgroundTransparency=0.2; customImgBox.BorderSizePixel=0; customImgBox.PlaceholderText="Paste Image ID here..."; customImgBox.Text=""; customImgBox.Font=Enum.Font.GothamMedium; customImgBox.TextSize=10; customImgBox.TextColor3=C.White; customImgBox.PlaceholderColor3=C.Gray; customImgBox.ClearTextOnFocus=false; customImgBox.Parent=THT_L; Instance.new("UICorner",customImgBox).CornerRadius=UDim.new(0,5)
+        local cpad2=Instance.new("UIPadding"); cpad2.PaddingLeft=UDim.new(0,8); cpad2.Parent=customImgBox; local cboxStr=Instance.new("UIStroke"); cboxStr.Thickness=1; cboxStr.Transparency=0.7; cboxStr.Parent=customImgBox; track(cboxStr,"Color","Accent")
 
-        local ctCard = mkCard(UI.THT, UDim2.new(0, W_HALF, 0, 155), UDim2.new(0, 0, 0, 155)); mkHdr(ctCard, "CUSTOM THEME BUILDER", 6)
-        L("Use RGB values (0-255) to set each color.", ctCard, UDim2.new(1, -14, 0, 12), UDim2.new(0, 7, 0, 22), "Gray", Enum.TextXAlignment.Left, Enum.Font.Gotham, 9)
+        -- "?" tooltip button
+        local helpBtn=Instance.new("TextButton"); helpBtn.Size=UDim2.new(0,20,0,20); helpBtn.Position=UDim2.new(1,-25,0,114); helpBtn.BackgroundTransparency=1; helpBtn.Text="?"; helpBtn.Font=Enum.Font.GothamBold; helpBtn.TextSize=13; helpBtn.TextColor3=C.Accent; helpBtn.ZIndex=51; helpBtn.Parent=THT_L
+        local helpPopup=Instance.new("Frame"); helpPopup.Size=UDim2.new(0,240,0,58); helpPopup.Position=UDim2.new(1,-260,0,138); helpPopup.BackgroundColor3=C.DkBg; helpPopup.BorderSizePixel=0; helpPopup.Visible=false; helpPopup.ZIndex=100; helpPopup.Parent=THT_L; Instance.new("UICorner",helpPopup).CornerRadius=UDim.new(0,6)
+        local helpStr=Instance.new("UIStroke"); helpStr.Thickness=1.5; helpStr.ZIndex=100; helpStr.Parent=helpPopup; track(helpStr,"Color","Accent")
+        local helpTxt=Instance.new("TextLabel"); helpTxt.Size=UDim2.new(1,-12,1,-8); helpTxt.Position=UDim2.new(0,6,0,4); helpTxt.BackgroundTransparency=1; helpTxt.Text="Must be an IMAGE ID, not a Decal ID!\n(Use BTRoblox to find the correct ID)"; helpTxt.Font=Enum.Font.GothamMedium; helpTxt.TextSize=10; helpTxt.TextColor3=C.White; helpTxt.TextWrapped=true; helpTxt.ZIndex=101; helpTxt.Parent=helpPopup
+        helpBtn.MouseEnter:Connect(function() helpPopup.Visible=true; helpBtn.TextColor3=C.White end)
+        helpBtn.MouseLeave:Connect(function() helpPopup.Visible=false; helpBtn.TextColor3=C.Accent end)
 
-        local colorSlots = {{label="Accent", key="Accent"},{label="BG", key="Bg"},{label="Card", key="Card"},{label="Tab", key="Tab"}}
-        local CY = 38
-        for _, slot in ipairs(colorSlots) do
-            L(slot.label, ctCard, UDim2.new(0, 40, 0, 12), UDim2.new(0, 7, 0, CY+2), "Gray", Enum.TextXAlignment.Left, Enum.Font.GothamBold, 9)
-            local sw = Instance.new("Frame"); sw.Size = UDim2.new(0, 14, 0, 14); sw.Position = UDim2.new(0, 52, 0, CY); sw.BackgroundColor3 = C[slot.key]; sw.BorderSizePixel = 0; sw.Parent = ctCard; Instance.new("UICorner", sw).CornerRadius = UDim.new(0, 3)
-            local colVals = {C[slot.key].R*255, C[slot.key].G*255, C[slot.key].B*255}
-            local function rebuildColor() local nc = Color3.fromRGB(math.floor(colVals[1]), math.floor(colVals[2]), math.floor(colVals[3])); C[slot.key] = nc; sw.BackgroundColor3 = nc; sv("tc_"..slot.key, nc); applyTheme() end
-            local labels = {"R", "G", "B"}; local barW = math.floor((W_HALF-90)/3)-4
-            for j=1, 3 do
-                local jj = j
-                local xo = 70+(jj-1)*(barW+6)
-                L(labels[jj], ctCard, UDim2.new(0, 10, 0, 14), UDim2.new(0, xo, 0, CY), "Gray", Enum.TextXAlignment.Left, Enum.Font.GothamBold, 8)
-                local bf = Instance.new("Frame"); bf.Size = UDim2.new(0, barW, 0, 14); bf.Position = UDim2.new(0, xo+10, 0, CY); bf.BackgroundTransparency = 1; bf.Parent = ctCard
-                tBar(bf, 0, barW, colVals[jj]/255, "ctb_"..slot.key.."_"..labels[jj], colVals[jj]/255, function(v) colVals[jj] = v*255; rebuildColor() end)
+        -- ── IMPROVED: "Save as..." button + named custom image slots ──
+        --  Input + Save button side by side, then a scrollable saved list below
+
+        local saveImgBtn=Instance.new("TextButton"); saveImgBtn.Size=UDim2.new(0,46,0,26); saveImgBtn.Position=UDim2.new(1,-56,0,110); saveImgBtn.BackgroundColor3=C.Accent; saveImgBtn.BackgroundTransparency=0.25; saveImgBtn.BorderSizePixel=0; saveImgBtn.Text="Save"; saveImgBtn.Font=Enum.Font.GothamBold; saveImgBtn.TextSize=10; saveImgBtn.TextColor3=Color3.new(1,1,1); saveImgBtn.Parent=THT_L; Instance.new("UICorner",saveImgBtn).CornerRadius=UDim.new(0,5); track(saveImgBtn,"BackgroundColor3","Accent")
+        saveImgBtn.MouseEnter:Connect(function() S.Tween:Create(saveImgBtn,TweenInfo.new(0.1),{BackgroundTransparency=0}):Play() end)
+        saveImgBtn.MouseLeave:Connect(function() S.Tween:Create(saveImgBtn,TweenInfo.new(0.1),{BackgroundTransparency=0.25}):Play() end)
+
+        -- Saved images scroll list (inside THT_L, shown below the input)
+        local savedImgLabel=L("SAVED IMAGES",THT_L,UDim2.new(1,-14,0,11),UDim2.new(0,10,0,144),"Accent",Enum.TextXAlignment.Left,Enum.Font.GothamBold,9)
+        mkDiv(THT_L,157,1)
+        local savedImgScroll=Instance.new("ScrollingFrame"); savedImgScroll.Size=UDim2.new(1,-14,0,32); savedImgScroll.Position=UDim2.new(0,7,0,162); savedImgScroll.BackgroundTransparency=1; savedImgScroll.BorderSizePixel=0; savedImgScroll.ScrollBarThickness=2; savedImgScroll.ScrollBarImageColor3=C.Accent; savedImgScroll.CanvasSize=UDim2.new(0,0,0,0); savedImgScroll.AutomaticCanvasSize=Enum.AutomaticSize.X; savedImgScroll.ScrollingDirection=Enum.ScrollingDirection.X; savedImgScroll.ClipsDescendants=true; savedImgScroll.Parent=THT_L
+        local savedImgLL=Instance.new("UIListLayout"); savedImgLL.FillDirection=Enum.FillDirection.Horizontal; savedImgLL.Padding=UDim.new(0,5); savedImgLL.VerticalAlignment=Enum.VerticalAlignment.Center; savedImgLL.Parent=savedImgScroll
+
+        -- Saved images stored as: _G.NaxiumSavedImages = { {name="...", id="..."}, ... }
+        if not _G.NaxiumSavedImages then
+            _G.NaxiumSavedImages = {}
+            -- Load from file if available
+            pcall(function()
+                if readfile and isfile and isfile("NaxiumHub/savedimages.json") then
+                    local raw=readfile("NaxiumHub/savedimages.json")
+                    local decoded=HttpService:JSONDecode(raw)
+                    if type(decoded)=="table" then _G.NaxiumSavedImages=decoded end
+                end
+            end)
+        end
+
+        local function persistSavedImages()
+            pcall(function()
+                if writefile and makefolder then
+                    if not isfolder("NaxiumHub") then makefolder("NaxiumHub") end
+                    writefile("NaxiumHub/savedimages.json", HttpService:JSONEncode(_G.NaxiumSavedImages))
+                end
+            end)
+        end
+
+        local refreshSavedImages -- forward decl
+        refreshSavedImages = function()
+            for _,c in ipairs(savedImgScroll:GetChildren()) do if not c:IsA("UIListLayout") then c:Destroy() end end
+            if #_G.NaxiumSavedImages==0 then
+                local empty=Instance.new("TextLabel"); empty.Size=UDim2.new(0,160,1,0); empty.BackgroundTransparency=1; empty.Text="No saved images yet."; empty.TextColor3=C.Gray; empty.Font=Enum.Font.GothamMedium; empty.TextSize=9; empty.Parent=savedImgScroll
+                return
             end
-            CY = CY + 22
+            for idx,entry in ipairs(_G.NaxiumSavedImages) do
+                local slot=Instance.new("Frame"); slot.Size=UDim2.new(0,90,0,28); slot.BackgroundColor3=Color3.fromRGB(14,20,32); slot.BackgroundTransparency=0.25; slot.BorderSizePixel=0; slot.Parent=savedImgScroll; Instance.new("UICorner",slot).CornerRadius=UDim.new(0,5)
+                local slotStr=Instance.new("UIStroke"); slotStr.Thickness=1; slotStr.Transparency=0.75; slotStr.Parent=slot; track(slotStr,"Color","Accent")
+                -- Thumbnail preview
+                local thumb=Instance.new("ImageLabel"); thumb.Size=UDim2.new(0,22,0,22); thumb.Position=UDim2.new(0,3,0.5,0); thumb.AnchorPoint=Vector2.new(0,0.5); thumb.BackgroundColor3=C.DkBg; thumb.BorderSizePixel=0; thumb.Image="rbxassetid://"..entry.id; thumb.ScaleType=Enum.ScaleType.Crop; thumb.Parent=slot; Instance.new("UICorner",thumb).CornerRadius=UDim.new(0,3)
+                local nameLbl=Instance.new("TextLabel"); nameLbl.Size=UDim2.new(1,-44,1,0); nameLbl.Position=UDim2.new(0,28,0,0); nameLbl.BackgroundTransparency=1; nameLbl.Text=entry.name; nameLbl.TextColor3=C.White; nameLbl.Font=Enum.Font.GothamMedium; nameLbl.TextSize=9; nameLbl.TextXAlignment=Enum.TextXAlignment.Left; nameLbl.TextTruncate=Enum.TextTruncate.AtEnd; nameLbl.Parent=slot
+                -- Delete X
+                local delBtn=Instance.new("TextButton"); delBtn.Size=UDim2.new(0,14,0,14); delBtn.Position=UDim2.new(1,-16,0,2); delBtn.BackgroundTransparency=1; delBtn.Text="×"; delBtn.Font=Enum.Font.GothamBold; delBtn.TextSize=12; delBtn.TextColor3=C.Gray; delBtn.ZIndex=3; delBtn.Parent=slot
+                delBtn.MouseEnter:Connect(function() delBtn.TextColor3=C.Red end); delBtn.MouseLeave:Connect(function() delBtn.TextColor3=C.Gray end)
+                delBtn.MouseButton1Click:Connect(function() table.remove(_G.NaxiumSavedImages,idx); persistSavedImages(); refreshSavedImages() end)
+                -- Click to apply
+                local applyBtn=Instance.new("TextButton"); applyBtn.Size=UDim2.new(1,0,1,-16); applyBtn.Position=UDim2.new(0,0,0,0); applyBtn.BackgroundTransparency=1; applyBtn.Text=""; applyBtn.ZIndex=2; applyBtn.Parent=slot
+                applyBtn.MouseEnter:Connect(function() S.Tween:Create(slot,TweenInfo.new(0.1),{BackgroundTransparency=0.05}):Play() end)
+                applyBtn.MouseLeave:Connect(function() S.Tween:Create(slot,TweenInfo.new(0.1),{BackgroundTransparency=0.25}):Play() end)
+                applyBtn.MouseButton1Click:Connect(function()
+                    UI.bgImg.Image="rbxassetid://"..entry.id; updateBgScaling(UI.bgImg.Image); sv("bg_img",UI.bgImg.Image); openBgBtn.Text=entry.name.."  v"
+                    customImgBox.Text=entry.id
+                end)
+            end
         end
-        L("Tip: Pick a preset first, then fine-tune colors above.", ctCard, UDim2.new(1, -14, 0, 26), UDim2.new(0, 7, 0, CY+4), "Gray", Enum.TextXAlignment.Left, Enum.Font.Gotham, 9).TextWrapped = true
+        refreshSavedImages()
 
-        local preCard2 = mkCard(UI.THT, UDim2.new(0, W_HALF, 0, 310), UDim2.new(0, W_HALF+10, 0, 0)); mkHdr(preCard2, "PRESET THEMES", 6)
-        local rainbowCon = nil
-        setRainbow = function(active, soft)
-            if rainbowCon then rainbowCon:Disconnect(); rainbowCon = nil end
-            if active then rainbowCon = S.RS.Heartbeat:Connect(function() local h = (tick()*(soft and 0.15 or 0.4))%1; C.Accent = Color3.fromHSV(h, soft and 0.45 or 1, 1); applyTheme() end) end
+        -- Wire up FocusLost (apply) and Save button
+        customImgBox.FocusLost:Connect(function(enter)
+            if enter then
+                local id=customImgBox.Text:match("%d+")
+                if id then UI.bgImg.Image="rbxassetid://"..id; updateBgScaling(UI.bgImg.Image); sv("bg_img",UI.bgImg.Image); openBgBtn.Text="Custom  v"
+                else customImgBox.Text="" end
+            end
+        end)
+
+        saveImgBtn.MouseButton1Click:Connect(function()
+            local id=customImgBox.Text:match("%d+")
+            if not id or id=="" then saveImgBtn.Text="No ID!"; task.delay(1.2,function() saveImgBtn.Text="Save" end); return end
+            -- Check for duplicate
+            for _,e in ipairs(_G.NaxiumSavedImages) do if e.id==id then saveImgBtn.Text="Dup!"; task.delay(1.2,function() saveImgBtn.Text="Save" end); return end end
+            local name="img"..tostring(#_G.NaxiumSavedImages+1)
+            table.insert(_G.NaxiumSavedImages,{name=name,id=id})
+            persistSavedImages(); refreshSavedImages()
+            saveImgBtn.Text="Saved!"; task.delay(1.2,function() saveImgBtn.Text="Save" end)
+        end)
+
+        -- ── Custom Theme Builder (unchanged) ──
+        local ctCard=mkCard(UI.THT,UDim2.new(0,W_HALF,0,155),UDim2.new(0,0,0,210)); mkHdr(ctCard,"CUSTOM THEME BUILDER",6)
+        L("Use RGB values (0-255) to set each color.",ctCard,UDim2.new(1,-14,0,12),UDim2.new(0,7,0,22),"Gray",Enum.TextXAlignment.Left,Enum.Font.Gotham,9)
+        local colorSlots={{label="Accent",key="Accent"},{label="BG",key="Bg"},{label="Card",key="Card"},{label="Tab",key="Tab"}}
+        local CY=38
+        for _,slot in ipairs(colorSlots) do
+            L(slot.label,ctCard,UDim2.new(0,40,0,12),UDim2.new(0,7,0,CY+2),"Gray",Enum.TextXAlignment.Left,Enum.Font.GothamBold,9)
+            local sw=Instance.new("Frame"); sw.Size=UDim2.new(0,14,0,14); sw.Position=UDim2.new(0,52,0,CY); sw.BackgroundColor3=C[slot.key]; sw.BorderSizePixel=0; sw.Parent=ctCard; Instance.new("UICorner",sw).CornerRadius=UDim.new(0,3)
+            local colVals={C[slot.key].R*255,C[slot.key].G*255,C[slot.key].B*255}
+            local function rebuildColor() local nc=Color3.fromRGB(math.floor(colVals[1]),math.floor(colVals[2]),math.floor(colVals[3])); C[slot.key]=nc; sw.BackgroundColor3=nc; sv("tc_"..slot.key,nc); applyTheme() end
+            local labels={"R","G","B"}; local barW=math.floor((W_HALF-90)/3)-4
+            for j=1,3 do
+                local jj=j; local xo=70+(jj-1)*(barW+6)
+                L(labels[jj],ctCard,UDim2.new(0,10,0,14),UDim2.new(0,xo,0,CY),"Gray",Enum.TextXAlignment.Left,Enum.Font.GothamBold,8)
+                local bf=Instance.new("Frame"); bf.Size=UDim2.new(0,barW,0,14); bf.Position=UDim2.new(0,xo+10,0,CY); bf.BackgroundTransparency=1; bf.Parent=ctCard
+                tBar(bf,0,barW,colVals[jj]/255,"ctb_"..slot.key.."_"..labels[jj],colVals[jj]/255,function(v) colVals[jj]=v*255; rebuildColor() end)
+            end
+            CY=CY+22
         end
+        L("Tip: Pick a preset first, then fine-tune colors above.",ctCard,UDim2.new(1,-14,0,26),UDim2.new(0,7,0,CY+4),"Gray",Enum.TextXAlignment.Left,Enum.Font.Gotham,9).TextWrapped=true
 
-        local tList = {
-            {n="Default Blue",    bg=Color3.fromRGB(11,14,20),  ac=Color3.fromRGB(85,160,215),  txt=Color3.fromRGB(212,218,228), gry=Color3.fromRGB(118,128,144)},
-            {n="Midnight Purple", bg=Color3.fromRGB(12,9,20),   ac=Color3.fromRGB(148,88,228),  txt=Color3.fromRGB(230,225,245), gry=Color3.fromRGB(135,125,160)},
-            {n="Crimson",         bg=Color3.fromRGB(16,7,9),    ac=Color3.fromRGB(210,60,60),   txt=Color3.fromRGB(245,235,235), gry=Color3.fromRGB(155,135,135)},
-            {n="Forest",          bg=Color3.fromRGB(7,14,10),   ac=Color3.fromRGB(62,188,100),  txt=Color3.fromRGB(235,245,235), gry=Color3.fromRGB(135,155,135)},
-            {n="Solar Gold",      bg=Color3.fromRGB(16,12,5),   ac=Color3.fromRGB(248,192,50),  txt=Color3.fromRGB(250,245,230), gry=Color3.fromRGB(165,155,130)},
-            {n="Cherry Blossom",  bg=Color3.fromRGB(18,12,16),  ac=Color3.fromRGB(245,140,180), txt=Color3.fromRGB(250,240,245), gry=Color3.fromRGB(170,150,160)},
-            {n="Abyss",           bg=Color3.fromRGB(4,6,10),    ac=Color3.fromRGB(40,100,200),  txt=Color3.fromRGB(220,230,240), gry=Color3.fromRGB(120,130,150)},
-            {n="Arctic",          bg=Color3.fromRGB(18,22,30),  ac=Color3.fromRGB(190,224,252), txt=Color3.fromRGB(240,248,255), gry=Color3.fromRGB(150,170,190)},
-            {n="Rainbow Cycle",   bg=Color3.fromRGB(10,10,10),  ac=Color3.fromRGB(255,0,0),     txt=Color3.fromRGB(255,255,255), gry=Color3.fromRGB(160,160,160), rb=true, soft=false},
-            {n="Soft Rainbow",    bg=Color3.fromRGB(18,18,22),  ac=Color3.fromRGB(255,150,150), txt=Color3.fromRGB(250,250,250), gry=Color3.fromRGB(150,150,160), rb=true, soft=true},
+        -- ── Preset Themes ──
+        local preCard2=mkCard(UI.THT,UDim2.new(0,W_HALF,0,310),UDim2.new(0,W_HALF+10,0,0)); mkHdr(preCard2,"PRESET THEMES",6)
+        local rainbowCon=nil
+        setRainbow=function(active,soft)
+            if rainbowCon then rainbowCon:Disconnect(); rainbowCon=nil end
+            if active then rainbowCon=S.RS.Heartbeat:Connect(function() local h=(tick()*(soft and 0.15 or 0.4))%1; C.Accent=Color3.fromHSV(h,soft and 0.45 or 1,1); applyTheme() end) end
+        end
+        local tList={
+            {n="Default Blue",    bg=Color3.fromRGB(11,14,20),  ac=Color3.fromRGB(85,160,215),  txt=Color3.fromRGB(212,218,228),gry=Color3.fromRGB(118,128,144)},
+            {n="Midnight Purple", bg=Color3.fromRGB(12,9,20),   ac=Color3.fromRGB(148,88,228),  txt=Color3.fromRGB(230,225,245),gry=Color3.fromRGB(135,125,160)},
+            {n="Crimson",         bg=Color3.fromRGB(16,7,9),    ac=Color3.fromRGB(210,60,60),   txt=Color3.fromRGB(245,235,235),gry=Color3.fromRGB(155,135,135)},
+            {n="Forest",          bg=Color3.fromRGB(7,14,10),   ac=Color3.fromRGB(62,188,100),  txt=Color3.fromRGB(235,245,235),gry=Color3.fromRGB(135,155,135)},
+            {n="Solar Gold",      bg=Color3.fromRGB(16,12,5),   ac=Color3.fromRGB(248,192,50),  txt=Color3.fromRGB(250,245,230),gry=Color3.fromRGB(165,155,130)},
+            {n="Cherry Blossom",  bg=Color3.fromRGB(18,12,16),  ac=Color3.fromRGB(245,140,180), txt=Color3.fromRGB(250,240,245),gry=Color3.fromRGB(170,150,160)},
+            {n="Abyss",           bg=Color3.fromRGB(4,6,10),    ac=Color3.fromRGB(40,100,200),  txt=Color3.fromRGB(220,230,240),gry=Color3.fromRGB(120,130,150)},
+            {n="Arctic",          bg=Color3.fromRGB(18,22,30),  ac=Color3.fromRGB(190,224,252), txt=Color3.fromRGB(240,248,255),gry=Color3.fromRGB(150,170,190)},
+            {n="Rainbow Cycle",   bg=Color3.fromRGB(10,10,10),  ac=Color3.fromRGB(255,0,0),     txt=Color3.fromRGB(255,255,255),gry=Color3.fromRGB(160,160,160),rb=true,soft=false},
+            {n="Soft Rainbow",    bg=Color3.fromRGB(18,18,22),  ac=Color3.fromRGB(255,150,150), txt=Color3.fromRGB(250,250,250),gry=Color3.fromRGB(150,150,160),rb=true,soft=true},
         }
-        local PBH2 = math.floor((310-35)/#tList)
-        for i2, pr in ipairs(tList) do
-            local pb = Instance.new("TextButton"); pb.Size = UDim2.new(1, -20, 0, PBH2-4); pb.Position = UDim2.new(0, 10, 0, 28+(i2-1)*PBH2); pb.BackgroundColor3 = pr.bg; pb.BackgroundTransparency = 0; pb.BorderSizePixel = 0; pb.Text = ""; pb.AutoButtonColor = false; pb.Parent = preCard2; Instance.new("UICorner", pb).CornerRadius = UDim.new(0, 5)
-            local dot2 = Instance.new("Frame"); dot2.Size = UDim2.new(0, 8, 0, 8); dot2.Position = UDim2.new(0, 6, 0.5, 0); dot2.AnchorPoint = Vector2.new(0, 0.5); dot2.BackgroundColor3 = pr.ac; dot2.BorderSizePixel = 0; dot2.Parent = pb; Instance.new("UICorner", dot2).CornerRadius = UDim.new(1, 0); track(dot2, "BackgroundColor3", "Accent")
-            local nl5 = Instance.new("TextLabel"); nl5.Size = UDim2.new(1, -36, 1, 0); nl5.Position = UDim2.new(0, 20, 0, 0); nl5.BackgroundTransparency = 1; nl5.Text = pr.n; nl5.Font = Enum.Font.GothamMedium; nl5.TextSize = 11; nl5.TextColor3 = pr.txt; nl5.TextXAlignment = Enum.TextXAlignment.Left; nl5.Parent = pb
-            pb.MouseEnter:Connect(function() S.Tween:Create(pb, TweenInfo.new(0.12), {BackgroundTransparency=0.35}):Play() end); pb.MouseLeave:Connect(function() S.Tween:Create(pb, TweenInfo.new(0.12), {BackgroundTransparency=0}):Play() end)
+        local PBH2=math.floor((310-35)/#tList)
+        for i2,pr in ipairs(tList) do
+            local pb=Instance.new("TextButton"); pb.Size=UDim2.new(1,-20,0,PBH2-4); pb.Position=UDim2.new(0,10,0,28+(i2-1)*PBH2); pb.BackgroundColor3=pr.bg; pb.BackgroundTransparency=0; pb.BorderSizePixel=0; pb.Text=""; pb.AutoButtonColor=false; pb.Parent=preCard2; Instance.new("UICorner",pb).CornerRadius=UDim.new(0,5)
+            local dot2=Instance.new("Frame"); dot2.Size=UDim2.new(0,8,0,8); dot2.Position=UDim2.new(0,6,0.5,0); dot2.AnchorPoint=Vector2.new(0,0.5); dot2.BackgroundColor3=pr.ac; dot2.BorderSizePixel=0; dot2.Parent=pb; Instance.new("UICorner",dot2).CornerRadius=UDim.new(1,0)
+            local nl5=Instance.new("TextLabel"); nl5.Size=UDim2.new(1,-36,1,0); nl5.Position=UDim2.new(0,20,0,0); nl5.BackgroundTransparency=1; nl5.Text=pr.n; nl5.Font=Enum.Font.GothamMedium; nl5.TextSize=11; nl5.TextColor3=pr.txt; nl5.TextXAlignment=Enum.TextXAlignment.Left; nl5.Parent=pb
+            pb.MouseEnter:Connect(function() S.Tween:Create(pb,TweenInfo.new(0.12),{BackgroundTransparency=0.35}):Play() end); pb.MouseLeave:Connect(function() S.Tween:Create(pb,TweenInfo.new(0.12),{BackgroundTransparency=0}):Play() end)
             pb.MouseButton1Click:Connect(function()
-                if pr.rb then setRainbow(true, pr.soft); C.Bg = pr.bg else setRainbow(false); C.Bg = pr.bg; C.Accent = pr.ac end
-                C.White = pr.txt; C.Gray = pr.gry
-                local r2,g2,b2 = pr.bg.R*255, pr.bg.G*255, pr.bg.B*255
-                C.DkBg = Color3.fromRGB(math.floor(r2*0.62), math.floor(g2*0.62), math.floor(b2*0.62)); C.Card = Color3.fromRGB(math.floor(r2*0.82), math.floor(g2*0.82), math.floor(b2*0.82)); C.Tab = Color3.fromRGB(math.clamp(math.floor(r2+12),0,255), math.clamp(math.floor(g2+15),0,255), math.clamp(math.floor(b2+20),0,255))
-                for k, v in pairs(C) do sv("tc_"..k, v) end
-                applyTheme()
+                if pr.rb then setRainbow(true,pr.soft); C.Bg=pr.bg else setRainbow(false); C.Bg=pr.bg; C.Accent=pr.ac end
+                C.White=pr.txt; C.Gray=pr.gry
+                local r2,g2,b2=pr.bg.R*255,pr.bg.G*255,pr.bg.B*255
+                C.DkBg=Color3.fromRGB(math.floor(r2*0.62),math.floor(g2*0.62),math.floor(b2*0.62)); C.Card=Color3.fromRGB(math.floor(r2*0.82),math.floor(g2*0.82),math.floor(b2*0.82)); C.Tab=Color3.fromRGB(math.clamp(math.floor(r2+12),0,255),math.clamp(math.floor(g2+15),0,255),math.clamp(math.floor(b2+20),0,255))
+                for k,v in pairs(C) do sv("tc_"..k,v) end; applyTheme()
             end)
         end
     end
 
     -- ============================================================
-    -- CONFIG TAB
+    -- CONFIG TAB  (IMPROVED: count badge, last-loaded indicator,
+    --              clipboard import/export, search filter)
     -- ============================================================
     do
-        local cfgCreateCard=mkCard(UI.CFG,UDim2.new(0,W_HALF,0,175),UDim2.new(0,0,0,0)); mkHdr(cfgCreateCard,"CONFIGS",6)
-        L("Save/load all your toggle and slider settings.",cfgCreateCard,UDim2.new(1,-14,0,13),UDim2.new(0,7,0,26),"Gray",Enum.TextXAlignment.Left,Enum.Font.Gotham,10)
+        -- ── Left: Create / Import / Export / Reset ──
+        local cfgCreateCard=mkCard(UI.CFG,UDim2.new(0,W_HALF,0,240),UDim2.new(0,0,0,0)); mkHdr(cfgCreateCard,"CONFIGS",6)
+        L("Save, load and share all your settings.",cfgCreateCard,UDim2.new(1,-14,0,13),UDim2.new(0,7,0,26),"Gray",Enum.TextXAlignment.Left,Enum.Font.Gotham,10)
+
+        -- Name input
         local cfgBox=Instance.new("TextBox"); cfgBox.Size=UDim2.new(1,-16,0,30); cfgBox.Position=UDim2.new(0,8,0,48); cfgBox.BackgroundColor3=Color3.fromRGB(12,16,24); cfgBox.BackgroundTransparency=0.2; cfgBox.BorderSizePixel=0; cfgBox.Text=""; cfgBox.PlaceholderText="Config name..."; cfgBox.Font=Enum.Font.GothamMedium; cfgBox.TextSize=12; cfgBox.TextColor3=C.White; cfgBox.PlaceholderColor3=C.Gray; cfgBox.ClearTextOnFocus=false; cfgBox.Parent=cfgCreateCard; Instance.new("UICorner",cfgBox).CornerRadius=UDim.new(0,6)
         local cpad=Instance.new("UIPadding"); cpad.PaddingLeft=UDim.new(0,10); cpad.Parent=cfgBox; local cfgBoxStr=Instance.new("UIStroke"); cfgBoxStr.Thickness=1; cfgBoxStr.Transparency=0.7; cfgBoxStr.Parent=cfgBox; track(cfgBoxStr,"Color","Accent")
-        local cfgSaveBtn=Instance.new("TextButton"); cfgSaveBtn.Size=UDim2.new(1,-16,0,32); cfgSaveBtn.Position=UDim2.new(0,8,0,88); cfgSaveBtn.BackgroundColor3=C.Accent; cfgSaveBtn.BackgroundTransparency=0.1; cfgSaveBtn.BorderSizePixel=0; cfgSaveBtn.Text="  Save Config"; cfgSaveBtn.Font=Enum.Font.GothamBold; cfgSaveBtn.TextSize=12; cfgSaveBtn.TextXAlignment=Enum.TextXAlignment.Left; cfgSaveBtn.TextColor3=Color3.new(1,1,1); cfgSaveBtn.Parent=cfgCreateCard; Instance.new("UICorner",cfgSaveBtn).CornerRadius=UDim.new(0,7); track(cfgSaveBtn,"BackgroundColor3","Accent")
-        local saveIcon=L("  SAVE",cfgSaveBtn,UDim2.new(1,0,1,0),UDim2.new(0,0,0,0),Color3.new(1,1,1),Enum.TextXAlignment.Left,Enum.Font.GothamBold,12); saveIcon.Visible=false 
+
+        -- Save button
+        local cfgSaveBtn=Instance.new("TextButton"); cfgSaveBtn.Size=UDim2.new(1,-16,0,30); cfgSaveBtn.Position=UDim2.new(0,8,0,88); cfgSaveBtn.BackgroundColor3=C.Accent; cfgSaveBtn.BackgroundTransparency=0.1; cfgSaveBtn.BorderSizePixel=0; cfgSaveBtn.Text="  ✦  Save Config"; cfgSaveBtn.Font=Enum.Font.GothamBold; cfgSaveBtn.TextSize=12; cfgSaveBtn.TextXAlignment=Enum.TextXAlignment.Left; cfgSaveBtn.TextColor3=Color3.new(1,1,1); cfgSaveBtn.Parent=cfgCreateCard; Instance.new("UICorner",cfgSaveBtn).CornerRadius=UDim.new(0,7); track(cfgSaveBtn,"BackgroundColor3","Accent")
         cfgSaveBtn.MouseEnter:Connect(function() S.Tween:Create(cfgSaveBtn,TweenInfo.new(0.12),{BackgroundTransparency=0}):Play() end); cfgSaveBtn.MouseLeave:Connect(function() S.Tween:Create(cfgSaveBtn,TweenInfo.new(0.12),{BackgroundTransparency=0.1}):Play() end)
-        local cfgResetBtn=Instance.new("TextButton"); cfgResetBtn.Size=UDim2.new(1,-16,0,28); cfgResetBtn.Position=UDim2.new(0,8,0,130); cfgResetBtn.BackgroundColor3=Color3.fromRGB(18,24,34); cfgResetBtn.BackgroundTransparency=0.3; cfgResetBtn.BorderSizePixel=0; cfgResetBtn.Text="  Reset All to Default"; cfgResetBtn.Font=Enum.Font.GothamMedium; cfgResetBtn.TextSize=11; cfgResetBtn.TextXAlignment=Enum.TextXAlignment.Left; cfgResetBtn.TextColor3=C.Red; cfgResetBtn.Parent=cfgCreateCard; Instance.new("UICorner",cfgResetBtn).CornerRadius=UDim.new(0,6); local rstStr=Instance.new("UIStroke"); rstStr.Thickness=1; rstStr.Transparency=0.55; rstStr.Color=C.Red; rstStr.Parent=cfgResetBtn
+
+        mkDiv(cfgCreateCard,126,1)
+
+        -- Export to clipboard
+        local cfgExportBtn=Instance.new("TextButton"); cfgExportBtn.Size=UDim2.new(1,-16,0,26); cfgExportBtn.Position=UDim2.new(0,8,0,134); cfgExportBtn.BackgroundColor3=Color3.fromRGB(18,28,42); cfgExportBtn.BackgroundTransparency=0.2; cfgExportBtn.BorderSizePixel=0; cfgExportBtn.Text="  ↑  Export Current → Clipboard"; cfgExportBtn.Font=Enum.Font.GothamBold; cfgExportBtn.TextSize=11; cfgExportBtn.TextXAlignment=Enum.TextXAlignment.Left; cfgExportBtn.TextColor3=C.Accent; cfgExportBtn.Parent=cfgCreateCard; Instance.new("UICorner",cfgExportBtn).CornerRadius=UDim.new(0,6)
+        local expStr=Instance.new("UIStroke"); expStr.Thickness=1; expStr.Transparency=0.6; expStr.Parent=cfgExportBtn; track(expStr,"Color","Accent")
+        cfgExportBtn.MouseEnter:Connect(function() S.Tween:Create(cfgExportBtn,TweenInfo.new(0.1),{BackgroundTransparency=0}):Play() end); cfgExportBtn.MouseLeave:Connect(function() S.Tween:Create(cfgExportBtn,TweenInfo.new(0.1),{BackgroundTransparency=0.2}):Play() end)
+        cfgExportBtn.MouseButton1Click:Connect(function()
+            local json=encodeData(State.saveData)
+            pcall(function() setclipboard(json) end)
+            cfgExportBtn.Text="  ✓  Copied to clipboard!"; task.delay(2,function() cfgExportBtn.Text="  ↑  Export Current → Clipboard" end)
+        end)
+
+        -- Import from clipboard
+        local cfgImportBtn=Instance.new("TextButton"); cfgImportBtn.Size=UDim2.new(1,-16,0,26); cfgImportBtn.Position=UDim2.new(0,8,0,168); cfgImportBtn.BackgroundColor3=Color3.fromRGB(18,28,42); cfgImportBtn.BackgroundTransparency=0.2; cfgImportBtn.BorderSizePixel=0; cfgImportBtn.Text="  ↓  Import from Clipboard"; cfgImportBtn.Font=Enum.Font.GothamBold; cfgImportBtn.TextSize=11; cfgImportBtn.TextXAlignment=Enum.TextXAlignment.Left; cfgImportBtn.TextColor3=C.Green; cfgImportBtn.Parent=cfgCreateCard; Instance.new("UICorner",cfgImportBtn).CornerRadius=UDim.new(0,6)
+        local impStr=Instance.new("UIStroke"); impStr.Thickness=1; impStr.Transparency=0.6; impStr.Parent=cfgImportBtn; track(impStr,"Color","Green")
+        cfgImportBtn.MouseEnter:Connect(function() S.Tween:Create(cfgImportBtn,TweenInfo.new(0.1),{BackgroundTransparency=0}):Play() end); cfgImportBtn.MouseLeave:Connect(function() S.Tween:Create(cfgImportBtn,TweenInfo.new(0.1),{BackgroundTransparency=0.2}):Play() end)
+        cfgImportBtn.MouseButton1Click:Connect(function()
+            local clip=""
+            pcall(function() clip=getclipboard() end)
+            if clip=="" then cfgImportBtn.Text="  ✗  Clipboard empty"; task.delay(1.5,function() cfgImportBtn.Text="  ↓  Import from Clipboard" end); return end
+            local data=decodeData(clip)
+            if not next(data) then cfgImportBtn.Text="  ✗  Invalid config data"; task.delay(1.5,function() cfgImportBtn.Text="  ↓  Import from Clipboard" end); return end
+            for k,v in pairs(data) do State.saveData[k]=v end
+            for _,el in ipairs(State.ConfigElements) do pcall(function() el.update(State.saveData[el.key]) end) end
+            cfgImportBtn.Text="  ✓  Imported successfully!"; task.delay(2,function() cfgImportBtn.Text="  ↓  Import from Clipboard" end)
+        end)
+
+        -- Reset all
+        local cfgResetBtn=Instance.new("TextButton"); cfgResetBtn.Size=UDim2.new(1,-16,0,26); cfgResetBtn.Position=UDim2.new(0,8,0,204); cfgResetBtn.BackgroundColor3=Color3.fromRGB(18,24,34); cfgResetBtn.BackgroundTransparency=0.3; cfgResetBtn.BorderSizePixel=0; cfgResetBtn.Text="  ✗  Reset All to Default"; cfgResetBtn.Font=Enum.Font.GothamMedium; cfgResetBtn.TextSize=11; cfgResetBtn.TextXAlignment=Enum.TextXAlignment.Left; cfgResetBtn.TextColor3=C.Red; cfgResetBtn.Parent=cfgCreateCard; Instance.new("UICorner",cfgResetBtn).CornerRadius=UDim.new(0,6); local rstStr=Instance.new("UIStroke"); rstStr.Thickness=1; rstStr.Transparency=0.55; rstStr.Color=C.Red; rstStr.Parent=cfgResetBtn
         cfgResetBtn.MouseEnter:Connect(function() S.Tween:Create(cfgResetBtn,TweenInfo.new(0.12),{BackgroundTransparency=0.1}):Play() end); cfgResetBtn.MouseLeave:Connect(function() S.Tween:Create(cfgResetBtn,TweenInfo.new(0.12),{BackgroundTransparency=0.3}):Play() end)
 
+        -- ── Right: Saved configs list with count badge, search, last-loaded ──
         local cfgListCard=mkCard(UI.CFG,UDim2.new(0,W_HALF,0,310),UDim2.new(0,W_HALF+10,0,0)); mkHdr(cfgListCard,"SAVED CONFIGS",6)
-        local cfgScroll=Instance.new("ScrollingFrame"); cfgScroll.Size=UDim2.new(1,-10,0,270); cfgScroll.Position=UDim2.new(0,5,0,28); cfgScroll.BackgroundTransparency=1; cfgScroll.BorderSizePixel=0; cfgScroll.ScrollBarThickness=2; cfgScroll.ScrollBarImageColor3=C.Accent; cfgScroll.CanvasSize=UDim2.new(0,0,0,0); cfgScroll.AutomaticCanvasSize=Enum.AutomaticSize.Y; cfgScroll.ClipsDescendants=true; cfgScroll.Parent=cfgListCard; local cfgLL=Instance.new("UIListLayout"); cfgLL.Padding=UDim.new(0,5); cfgLL.Parent=cfgScroll
+
+        -- Count badge
+        local cfgCountBadge=Instance.new("Frame"); cfgCountBadge.Size=UDim2.new(0,22,0,14); cfgCountBadge.Position=UDim2.new(1,-30,0,7); cfgCountBadge.BackgroundColor3=C.Accent; cfgCountBadge.BackgroundTransparency=0.3; cfgCountBadge.BorderSizePixel=0; cfgCountBadge.Parent=cfgListCard; Instance.new("UICorner",cfgCountBadge).CornerRadius=UDim.new(1,0); track(cfgCountBadge,"BackgroundColor3","Accent")
+        local cfgCountLbl=Instance.new("TextLabel"); cfgCountLbl.Size=UDim2.new(1,0,1,0); cfgCountLbl.BackgroundTransparency=1; cfgCountLbl.Text="0"; cfgCountLbl.TextColor3=Color3.new(1,1,1); cfgCountLbl.Font=Enum.Font.GothamBold; cfgCountLbl.TextSize=9; cfgCountLbl.Parent=cfgCountBadge
+
+        -- Search box
+        local cfgSearch=Instance.new("TextBox"); cfgSearch.Size=UDim2.new(1,-16,0,22); cfgSearch.Position=UDim2.new(0,8,0,28); cfgSearch.BackgroundColor3=Color3.fromRGB(10,14,20); cfgSearch.BackgroundTransparency=0.2; cfgSearch.BorderSizePixel=0; cfgSearch.PlaceholderText="Search configs..."; cfgSearch.Text=""; cfgSearch.Font=Enum.Font.GothamMedium; cfgSearch.TextSize=10; cfgSearch.TextColor3=C.White; cfgSearch.PlaceholderColor3=C.Gray; cfgSearch.ClearTextOnFocus=false; cfgSearch.Parent=cfgListCard; Instance.new("UICorner",cfgSearch).CornerRadius=UDim.new(0,5)
+        local spad=Instance.new("UIPadding"); spad.PaddingLeft=UDim.new(0,8); spad.Parent=cfgSearch; local searchStr=Instance.new("UIStroke"); searchStr.Thickness=1; searchStr.Transparency=0.72; searchStr.Parent=cfgSearch; track(searchStr,"Color","Accent")
+
+        -- Last loaded indicator
+        local lastLoadedLbl=L("",cfgListCard,UDim2.new(1,-14,0,11),UDim2.new(0,7,0,54),"Gray",Enum.TextXAlignment.Left,Enum.Font.GothamMedium,9)
+
+        -- Scroll list
+        local cfgScroll=Instance.new("ScrollingFrame"); cfgScroll.Size=UDim2.new(1,-10,0,230); cfgScroll.Position=UDim2.new(0,5,0,68); cfgScroll.BackgroundTransparency=1; cfgScroll.BorderSizePixel=0; cfgScroll.ScrollBarThickness=2; cfgScroll.ScrollBarImageColor3=C.Accent; cfgScroll.CanvasSize=UDim2.new(0,0,0,0); cfgScroll.AutomaticCanvasSize=Enum.AutomaticSize.Y; cfgScroll.ClipsDescendants=true; cfgScroll.Parent=cfgListCard
+        local cfgLL=Instance.new("UIListLayout"); cfgLL.Padding=UDim.new(0,5); cfgLL.Parent=cfgScroll
+
+        local _lastLoaded=""
+
         local function getConfigs()
             local list={}
             if listfiles and isfolder then pcall(function() if isfolder("NaxiumHub") and isfolder("NaxiumHub/Configs") then for _,f in ipairs(listfiles("NaxiumHub/Configs")) do local n=f:match("([^/\\]+)%.json$"); if n then table.insert(list,n) end end end end) end
-            if #list==0 and _G.NaxiumConfigs then for k,_ in pairs(_G.NaxiumConfigs) do table.insert(list,k) end end
+            if #list==0 and _G.NaxiumConfigs then for k in pairs(_G.NaxiumConfigs) do table.insert(list,k) end end
+            table.sort(list)
             return list
         end
-        local function refreshConfigs()
+
+        local function refreshConfigs(filter)
+            filter=filter and filter:lower() or ""
             for _,c in ipairs(cfgScroll:GetChildren()) do if c:IsA("Frame") or c:IsA("TextLabel") then c:Destroy() end end
             local list=getConfigs()
-            if #list==0 then local empty=L("No configs saved yet.",cfgScroll,UDim2.new(1,-10,0,30),UDim2.new(0,5,0,0),"Gray",Enum.TextXAlignment.Center,Enum.Font.GothamMedium,10); empty.Size=UDim2.new(1,-10,0,30); return end
+            cfgCountLbl.Text=tostring(#list)
+
+            if #list==0 then
+                local empty=L("No configs saved yet.",cfgScroll,UDim2.new(1,-10,0,30),UDim2.new(0,5,0,0),"Gray",Enum.TextXAlignment.Center,Enum.Font.GothamMedium,10)
+                empty.Size=UDim2.new(1,-10,0,30); return
+            end
+
+            local shown=0
             for _,name in ipairs(list) do
-                local row=Instance.new("Frame"); row.Size=UDim2.new(1,-6,0,36); row.BackgroundColor3=Color3.fromRGB(14,20,32); row.BackgroundTransparency=0.25; row.BorderSizePixel=0; row.Parent=cfgScroll; Instance.new("UICorner",row).CornerRadius=UDim.new(0,6); local rStr=Instance.new("UIStroke"); rStr.Thickness=1; rStr.Transparency=0.8; rStr.Parent=row; track(rStr,"Color","Accent")
-                local nLbl=L(name,row,UDim2.new(1,-112,0,20),UDim2.new(0,10,0,8),"White",Enum.TextXAlignment.Left,Enum.Font.GothamBold,11)
-                local lBtn=Instance.new("TextButton"); lBtn.Size=UDim2.new(0,52,0,22); lBtn.Position=UDim2.new(1,-106,0.5,0); lBtn.AnchorPoint=Vector2.new(0,0.5); lBtn.BackgroundColor3=C.Accent; lBtn.BackgroundTransparency=0.2; lBtn.BorderSizePixel=0; lBtn.Text="Load"; lBtn.Font=Enum.Font.GothamBold; lBtn.TextSize=10; lBtn.TextColor3=Color3.new(1,1,1); lBtn.Parent=row; Instance.new("UICorner",lBtn).CornerRadius=UDim.new(0,5); track(lBtn,"BackgroundColor3","Accent")
-                local dBtn=Instance.new("TextButton"); dBtn.Size=UDim2.new(0,40,0,22); dBtn.Position=UDim2.new(1,-48,0.5,0); dBtn.AnchorPoint=Vector2.new(0,0.5); dBtn.BackgroundColor3=Color3.fromRGB(18,24,34); dBtn.BackgroundTransparency=0.3; dBtn.BorderSizePixel=0; dBtn.Text="Del"; dBtn.Font=Enum.Font.GothamBold; dBtn.TextSize=10; dBtn.TextColor3=C.Red; dBtn.Parent=row; Instance.new("UICorner",dBtn).CornerRadius=UDim.new(0,5); local dStr=Instance.new("UIStroke"); dStr.Thickness=1; dStr.Transparency=0.6; dStr.Color=C.Red; dStr.Parent=dBtn
-                lBtn.MouseEnter:Connect(function() S.Tween:Create(lBtn,TweenInfo.new(0.1),{BackgroundTransparency=0}):Play() end); lBtn.MouseLeave:Connect(function() S.Tween:Create(lBtn,TweenInfo.new(0.1),{BackgroundTransparency=0.2}):Play() end)
-                lBtn.MouseButton1Click:Connect(function()
-                    local json=nil; if readfile and isfile then pcall(function() if isfile("NaxiumHub/Configs/"..name..".json") then json=readfile("NaxiumHub/Configs/"..name..".json") end end) end
-                    if not json and _G.NaxiumConfigs then json=_G.NaxiumConfigs[name] end
-                    if json then
-                        local data=decodeData(json); for k,v in pairs(data) do State.saveData[k]=v end; for _,el in ipairs(State.ConfigElements) do pcall(function() el.update(State.saveData[el.key]) end) end
-                        if writefile then pcall(function() writefile("NaxiumHub/autoload.txt",name) end) end
-                        lBtn.Text="Loaded!"; task.delay(1.5,function() lBtn.Text="Load" end)
-                    else lBtn.Text="No data"; task.delay(1.5,function() lBtn.Text="Load" end) end
-                end)
-                dBtn.MouseEnter:Connect(function() S.Tween:Create(dBtn,TweenInfo.new(0.1),{BackgroundTransparency=0.1}):Play() end); dBtn.MouseLeave:Connect(function() S.Tween:Create(dBtn,TweenInfo.new(0.1),{BackgroundTransparency=0.3}):Play() end)
-                dBtn.MouseButton1Click:Connect(function()
-                    if delfile and isfile then pcall(function() if isfile("NaxiumHub/Configs/"..name..".json") then delfile("NaxiumHub/Configs/"..name..".json") end end) end
-                    if _G.NaxiumConfigs then _G.NaxiumConfigs[name]=nil end; refreshConfigs()
-                end)
+                if filter=="" or string.find(name:lower(),filter,1,true) then
+                    shown=shown+1
+                    local isActive=(name==_lastLoaded)
+                    local row=Instance.new("Frame")
+                    row.Size=UDim2.new(1,-6,0,36); row.BackgroundColor3=isActive and Color3.fromRGB(18,32,48) or Color3.fromRGB(14,20,32)
+                    row.BackgroundTransparency=0.25; row.BorderSizePixel=0; row.Parent=cfgScroll; Instance.new("UICorner",row).CornerRadius=UDim.new(0,6)
+                    local rStr=Instance.new("UIStroke"); rStr.Thickness=isActive and 1.5 or 1; rStr.Transparency=isActive and 0.2 or 0.8; rStr.Color=isActive and C.Accent or C.Gray; rStr.Parent=row; if isActive then track(rStr,"Color","Accent") end
+
+                    -- Active indicator dot
+                    if isActive then
+                        local aDot=Instance.new("Frame"); aDot.Size=UDim2.new(0,5,0,5); aDot.Position=UDim2.new(0,6,0.5,0); aDot.AnchorPoint=Vector2.new(0,0.5); aDot.BackgroundColor3=C.Green; aDot.BorderSizePixel=0; aDot.Parent=row; Instance.new("UICorner",aDot).CornerRadius=UDim.new(1,0); track(aDot,"BackgroundColor3","Green")
+                    end
+                    local xOff=isActive and 15 or 10
+                    local nLbl=L(name,row,UDim2.new(1,-118,0,20),UDim2.new(0,xOff,0,8),"White",Enum.TextXAlignment.Left,Enum.Font.GothamBold,11)
+
+                    -- Load button
+                    local lBtn=Instance.new("TextButton"); lBtn.Size=UDim2.new(0,52,0,22); lBtn.Position=UDim2.new(1,-106,0.5,0); lBtn.AnchorPoint=Vector2.new(0,0.5); lBtn.BackgroundColor3=C.Accent; lBtn.BackgroundTransparency=0.2; lBtn.BorderSizePixel=0; lBtn.Text="Load"; lBtn.Font=Enum.Font.GothamBold; lBtn.TextSize=10; lBtn.TextColor3=Color3.new(1,1,1); lBtn.Parent=row; Instance.new("UICorner",lBtn).CornerRadius=UDim.new(0,5); track(lBtn,"BackgroundColor3","Accent")
+                    -- Delete button
+                    local dBtn=Instance.new("TextButton"); dBtn.Size=UDim2.new(0,40,0,22); dBtn.Position=UDim2.new(1,-48,0.5,0); dBtn.AnchorPoint=Vector2.new(0,0.5); dBtn.BackgroundColor3=Color3.fromRGB(18,24,34); dBtn.BackgroundTransparency=0.3; dBtn.BorderSizePixel=0; dBtn.Text="Del"; dBtn.Font=Enum.Font.GothamBold; dBtn.TextSize=10; dBtn.TextColor3=C.Red; dBtn.Parent=row; Instance.new("UICorner",dBtn).CornerRadius=UDim.new(0,5); local dStr=Instance.new("UIStroke"); dStr.Thickness=1; dStr.Transparency=0.6; dStr.Color=C.Red; dStr.Parent=dBtn
+
+                    lBtn.MouseEnter:Connect(function() S.Tween:Create(lBtn,TweenInfo.new(0.1),{BackgroundTransparency=0}):Play() end); lBtn.MouseLeave:Connect(function() S.Tween:Create(lBtn,TweenInfo.new(0.1),{BackgroundTransparency=0.2}):Play() end)
+                    lBtn.MouseButton1Click:Connect(function()
+                        local json=nil
+                        if readfile and isfile then pcall(function() if isfile("NaxiumHub/Configs/"..name..".json") then json=readfile("NaxiumHub/Configs/"..name..".json") end end) end
+                        if not json and _G.NaxiumConfigs then json=_G.NaxiumConfigs[name] end
+                        if json then
+                            local data=decodeData(json); for k,v in pairs(data) do State.saveData[k]=v end
+                            for _,el in ipairs(State.ConfigElements) do pcall(function() el.update(State.saveData[el.key]) end) end
+                            if writefile then pcall(function() writefile("NaxiumHub/autoload.txt",name) end) end
+                            _lastLoaded=name
+                            lastLoadedLbl.Text="Last loaded: "..name
+                            lBtn.Text="Loaded!"; task.delay(1.5,function() lBtn.Text="Load" end)
+                            refreshConfigs(cfgSearch.Text)
+                        else lBtn.Text="No data"; task.delay(1.5,function() lBtn.Text="Load" end) end
+                    end)
+                    dBtn.MouseEnter:Connect(function() S.Tween:Create(dBtn,TweenInfo.new(0.1),{BackgroundTransparency=0.1}):Play() end); dBtn.MouseLeave:Connect(function() S.Tween:Create(dBtn,TweenInfo.new(0.1),{BackgroundTransparency=0.3}):Play() end)
+                    dBtn.MouseButton1Click:Connect(function()
+                        if delfile and isfile then pcall(function() if isfile("NaxiumHub/Configs/"..name..".json") then delfile("NaxiumHub/Configs/"..name..".json") end end) end
+                        if _G.NaxiumConfigs then _G.NaxiumConfigs[name]=nil end
+                        if _lastLoaded==name then _lastLoaded=""; lastLoadedLbl.Text="" end
+                        refreshConfigs(cfgSearch.Text)
+                    end)
+                end
+            end
+            if shown==0 and filter~="" then
+                local none=L("No configs match '"..filter.."'",cfgScroll,UDim2.new(1,-10,0,26),UDim2.new(0,5,0,0),"Gray",Enum.TextXAlignment.Center,Enum.Font.GothamMedium,10)
+                none.Size=UDim2.new(1,-10,0,26)
             end
         end
         refreshConfigs()
 
+        -- Search live filter
+        cfgSearch:GetPropertyChangedSignal("Text"):Connect(function() refreshConfigs(cfgSearch.Text) end)
+
+        -- Save button logic
         cfgSaveBtn.MouseButton1Click:Connect(function()
             local name=cfgBox.Text:gsub("[^%w_]","")
-            if name=="" then cfgSaveBtn.Text="  Enter a name first!"; task.delay(1.5,function() cfgSaveBtn.Text="  Save Config" end); return end
+            if name=="" then cfgSaveBtn.Text="  Enter a name first!"; task.delay(1.5,function() cfgSaveBtn.Text="  ✦  Save Config" end); return end
             local json=encodeData(State.saveData); local saved=false
             if writefile and makefolder then
                 pcall(function()
-                    if not isfolder("NaxiumHub") then makefolder("NaxiumHub") end; if not isfolder("NaxiumHub/Configs") then makefolder("NaxiumHub/Configs") end
+                    if not isfolder("NaxiumHub") then makefolder("NaxiumHub") end
+                    if not isfolder("NaxiumHub/Configs") then makefolder("NaxiumHub/Configs") end
                     writefile("NaxiumHub/Configs/"..name..".json",json); writefile("NaxiumHub/autoload.txt",name); saved=true
                 end)
             end
             if not saved then if not _G.NaxiumConfigs then _G.NaxiumConfigs={} end; _G.NaxiumConfigs[name]=json end
-            cfgBox.Text=""; cfgSaveBtn.Text="  Saved!"; refreshConfigs(); task.delay(1.5,function() cfgSaveBtn.Text="  Save Config" end)
+            _lastLoaded=name; lastLoadedLbl.Text="Last loaded: "..name
+            cfgBox.Text=""; cfgSaveBtn.Text="  ✦  Saved!"; refreshConfigs(cfgSearch.Text); task.delay(1.5,function() cfgSaveBtn.Text="  ✦  Save Config" end)
         end)
+
         cfgResetBtn.MouseButton1Click:Connect(function()
             State.saveData={}
             if delfile and isfile then pcall(function() if isfile("NaxiumHub/autoload.txt") then delfile("NaxiumHub/autoload.txt") end end) end
             for _,el in ipairs(State.ConfigElements) do pcall(function() el.update(el.default) end) end
-            setRainbow(false)
-            cfgResetBtn.Text="  Done! All reset."; task.delay(1.5,function() cfgResetBtn.Text="  Reset All to Default" end)
+            setRainbow(false); _lastLoaded=""; lastLoadedLbl.Text=""
+            cfgResetBtn.Text="  ✗  Done! All reset."; task.delay(1.5,function() cfgResetBtn.Text="  ✗  Reset All to Default" end)
+            refreshConfigs()
         end)
     end
 
     -- ============================================================
-    -- SETTINGS TAB & STAFF LOGIC
+    -- SETTINGS TAB
     -- ============================================================
     do
         local perfCard=mkCard(UI.SET,UDim2.new(0,W_HALF,0,285),UDim2.new(0,0,0,0)); mkHdr(perfCard,"PERFORMANCE & HUD",6)
@@ -882,14 +1316,9 @@ local function LoadNaxiumHub()
             else for obj,orig in pairs(partOrig) do if obj and obj.Parent then obj.Enabled=orig end end; partOrig={} end
         end) end) PY=PY+30
         mkTog(perfCard,"Disable Shadows",PY,"dis_shd",false,function(v) S.Lighting.GlobalShadows=not v end) PY=PY+30
-        
-        -- The Anti-Forcefield Logic!
-        local origFogEnd = S.Lighting.FogEnd
-        mkTog(perfCard,"Disable Fog",PY,"dis_fog",false,function(v) 
-            if v then origFogEnd = S.Lighting.FogEnd; S.Lighting.FogEnd = 100000 else S.Lighting.FogEnd = origFogEnd end
-        end) PY=PY+30
-        
-        local origAtmosphere=nil; local origBrightness=S.Lighting.Brightness; local origAmbient=S.Lighting.Ambient; local origOutdoor=S.Lighting.OutdoorAmbient; local removedEffects={}; local fFogEnd=S.Lighting.FogEnd
+        local origFogEnd=S.Lighting.FogEnd
+        mkTog(perfCard,"Disable Fog",PY,"dis_fog",false,function(v) if v then origFogEnd=S.Lighting.FogEnd; S.Lighting.FogEnd=100000 else S.Lighting.FogEnd=origFogEnd end end) PY=PY+30
+        local origBrightness=S.Lighting.Brightness; local origAmbient=S.Lighting.Ambient; local origOutdoor=S.Lighting.OutdoorAmbient; local removedEffects={}; local fFogEnd=S.Lighting.FogEnd
         mkTog(perfCard,"Fullbright",PY,"fl_brt",false,function(v)
             if v then
                 origBrightness=S.Lighting.Brightness; origAmbient=S.Lighting.Ambient; origOutdoor=S.Lighting.OutdoorAmbient; fFogEnd=S.Lighting.FogEnd
@@ -900,16 +1329,14 @@ local function LoadNaxiumHub()
                 for _,r in ipairs(removedEffects) do pcall(function() r.eff.Parent=r.parent end) end; removedEffects={}
             end
         end) PY=PY+30
-        
         mkTog(perfCard,"Hide Other Players",PY,"hid_plr",false,function(v) for _,p in ipairs(S.Players:GetPlayers()) do if p~=player and p.Character then p.Character.Parent=v and nil or workspace end end end) PY=PY+30
         mkSlider(perfCard,"Camera FOV",PY,"cam_fov",60,120,70,"%.0f",function(v) if workspace.CurrentCamera then workspace.CurrentCamera.FieldOfView=v end end)
 
         local behCard=mkCard(UI.SET,UDim2.new(0,W_HALF,0,90),UDim2.new(0,W_HALF+10,0,0)); mkHdr(behCard,"STAFF ALERTS",6)
         local BY=24; local notifyStaff=false; local kickStaff=false
         local hideKey=ld("hideMenuKey","RightShift"); local miniKey=ld("miniMenuKey","RightAlt")
-        
-        local notifiedStaff = {}
-        local function triggerStaffNotify(p, rn)
+        local notifiedStaff={}
+        local function triggerStaffNotify(p,rn)
             local notif=Instance.new("CanvasGroup"); notif.Size=UDim2.new(0,320,0,72); notif.Position=UDim2.new(0.5,0,0,-80); notif.AnchorPoint=Vector2.new(0.5,0); notif.BackgroundColor3=Color3.fromRGB(28,10,10); notif.BackgroundTransparency=0; notif.BorderSizePixel=0; notif.GroupTransparency=1; notif.ZIndex=400; notif.Parent=UI.gui; Instance.new("UICorner",notif).CornerRadius=UDim.new(0,10)
             local ns=Instance.new("UIStroke"); ns.Color=C.Red; ns.Transparency=0.2; ns.Thickness=1.5; ns.Parent=notif
             local acBar=Instance.new("Frame"); acBar.Size=UDim2.new(0,4,1,0); acBar.BackgroundColor3=C.Red; acBar.BorderSizePixel=0; acBar.Parent=notif; Instance.new("UICorner",acBar).CornerRadius=UDim.new(0,4)
@@ -923,20 +1350,18 @@ local function LoadNaxiumHub()
             S.Tween:Create(notif,TweenInfo.new(0.35,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),{Position=UDim2.new(0.5,0,0,12),GroupTransparency=0}):Play()
             task.delay(7,function() if notif and notif.Parent then S.Tween:Create(notif,TweenInfo.new(0.35,Enum.EasingStyle.Quad),{GroupTransparency=1,Position=UDim2.new(0.5,0,0,-80)}):Play(); task.delay(0.35,function() if notif and notif.Parent then notif:Destroy() end end) end end)
         end
-
         local function checkStaffLogic(p)
-            if p == player then return end
-            fetchRank(p, function(rv, rn)
-                if rv >= 10 then
-                    if notifyStaff and not notifiedStaff[p] then notifiedStaff[p] = true; triggerStaffNotify(p, rn) end
+            if p==player then return end
+            fetchRank(p,function(rv,rn)
+                if rv>=10 then
+                    if notifyStaff and not notifiedStaff[p] then notifiedStaff[p]=true; triggerStaffNotify(p,rn) end
                     if kickStaff then pcall(function() player:Kick("NaxiumHub Safety: "..p.DisplayName.." (@"..p.Name..") rank '"..rn.."' detected.") end) end
                 end
             end)
         end
+        mkTog(behCard,"Notify on Staff Join",BY,"notifyStaff",false,function(v) notifyStaff=v; if v then for _,p in ipairs(S.Players:GetPlayers()) do checkStaffLogic(p) end end end) BY=BY+30
+        mkTog(behCard,"Kick on Staff Join",BY,"kickStaff",false,function(v) kickStaff=v; if v then for _,p in ipairs(S.Players:GetPlayers()) do checkStaffLogic(p) end end end)
 
-        mkTog(behCard,"Notify on Staff Join",BY,"notifyStaff",false,function(v) notifyStaff=v; if v then for _, p in ipairs(S.Players:GetPlayers()) do checkStaffLogic(p) end end end) BY=BY+30
-        mkTog(behCard,"Kick on Staff Join",BY,"kickStaff",false,function(v) kickStaff=v; if v then for _, p in ipairs(S.Players:GetPlayers()) do checkStaffLogic(p) end end end)
-        
         local keyCard2=mkCard(UI.SET,UDim2.new(0,W_HALF,0,60),UDim2.new(0,W_HALF+10,0,100)); mkHdr(keyCard2,"MAIN MENU KEYBIND",6)
         local keyLbl2=L("Key: "..tostring(hideKey),keyCard2,UDim2.new(1,-90,0,14),UDim2.new(0,10,0,28),"Gray",Enum.TextXAlignment.Left,Enum.Font.GothamMedium,10)
         local skBtn=Instance.new("TextButton"); skBtn.Size=UDim2.new(0,74,0,18); skBtn.Position=UDim2.new(1,-84,0,27); skBtn.BackgroundColor3=C.Accent; skBtn.BackgroundTransparency=0.4; skBtn.BorderSizePixel=0; skBtn.Text="Set Key"; skBtn.Font=Enum.Font.GothamBold; skBtn.TextSize=10; skBtn.TextColor3=Color3.new(1,1,1); skBtn.Parent=keyCard2; Instance.new("UICorner",skBtn).CornerRadius=UDim.new(0,4)
@@ -968,31 +1393,25 @@ local function LoadNaxiumHub()
                 else if i.KeyCode.Name==hideKey then UI.mf.Visible=not UI.mf.Visible elseif miniUI and i.KeyCode.Name==miniKey then miniUI.Visible=not miniUI.Visible end end
             end
         end)
-
         S.Players.PlayerAdded:Connect(function(p) task.wait(2); checkStaffLogic(p) end)
-        S.Players.PlayerRemoving:Connect(function(p) notifiedStaff[p] = nil end)
+        S.Players.PlayerRemoving:Connect(function(p) notifiedStaff[p]=nil end)
     end
 
     -- ============================================================
-    -- BOTTOM BAR & KEYAUTH EXPIRY
+    -- BOTTOM BAR
     -- ============================================================
     do
         local bb2=Instance.new("Frame"); bb2.Size=UDim2.new(1,-20,0,32); bb2.Position=UDim2.new(0,10,0,398); bb2.BackgroundColor3=C.DkBg; bb2.BackgroundTransparency=0.12; bb2.BorderSizePixel=0; bb2.Parent=UI.mf; track(bb2,"BackgroundColor3","DkBg"); Instance.new("UICorner",bb2).CornerRadius=UDim.new(0,7)
         L("Game Status  |  CoS v2.5.1  [OK]",bb2,UDim2.new(0.33,0,1,0),UDim2.new(0,10,0,0),"Gray",Enum.TextXAlignment.Left,Enum.Font.GothamMedium,10)
-        
-        local expiryText = "<font color=\"#41bb6a\">Active</font>"
+        local expiryText="<font color=\"#41bb6a\">Active</font>"
         if _G.NaxiumExpiry then
-            local timeLeft = _G.NaxiumExpiry - os.time()
-            if timeLeft > 315360000 then expiryText = "<font color=\"#41bb6a\">Lifetime</font>"
-            elseif timeLeft > 0 then
-                local days = math.floor(timeLeft / 86400); local hours = math.floor((timeLeft % 86400) / 3600)
-                if days > 0 then expiryText = "<font color=\"#41bb6a\">" .. tostring(days) .. " Days Left</font>" else expiryText = "<font color=\"#41bb6a\">" .. tostring(hours) .. " Hours Left</font>" end
-            else expiryText = "<font color=\"#d24141\">Expired</font>" end
+            local tl=_G.NaxiumExpiry-os.time()
+            if tl>315360000 then expiryText="<font color=\"#41bb6a\">Lifetime</font>"
+            elseif tl>0 then local d=math.floor(tl/86400); local h=math.floor((tl%86400)/3600); if d>0 then expiryText="<font color=\"#41bb6a\">"..d.." Days Left</font>" else expiryText="<font color=\"#41bb6a\">"..h.." Hours Left</font>" end
+            else expiryText="<font color=\"#d24141\">Expired</font>" end
         end
-
         local accLbl2=L("",bb2,UDim2.new(0.33,0,1,0),UDim2.new(0.33,0,0,0),"White",Enum.TextXAlignment.Center,Enum.Font.GothamMedium,10)
-        accLbl2.RichText=true; accLbl2.Text="Account  |  <font color=\"#41bb6a\">Subscribed</font>  |  " .. expiryText
-        
+        accLbl2.RichText=true; accLbl2.Text="Account  |  <font color=\"#41bb6a\">Subscribed</font>  |  "..expiryText
         local psF2=Instance.new("Frame"); psF2.Size=UDim2.new(0.33,0,1,0); psF2.Position=UDim2.new(0.66,0,0,0); psF2.BackgroundTransparency=1; psF2.Parent=bb2
         local pLL=Instance.new("UIListLayout"); pLL.SortOrder=Enum.SortOrder.LayoutOrder; pLL.VerticalAlignment=Enum.VerticalAlignment.Center; pLL.Padding=UDim.new(0,2); pLL.Parent=psF2
         local function addBotRow(text,order)
@@ -1003,7 +1422,7 @@ local function LoadNaxiumHub()
             return lbl
         end
         local naxL2=addBotRow("0 Naxium Users Online",1); local srvL2=addBotRow("0 Players in Server",2)
-        local function updNx2() local realOnline = _G.NaxiumOnlineUsers or "1"; naxL2.Text = realOnline .. " Naxium Users Online"; srvL2.Text = tostring(#S.Players:GetPlayers()) .. " Players in Server" end
+        local function updNx2() local realOnline=_G.NaxiumOnlineUsers or "1"; naxL2.Text=realOnline.." Naxium Users Online"; srvL2.Text=tostring(#S.Players:GetPlayers()).." Players in Server" end
         S.Players.PlayerAdded:Connect(updNx2); S.Players.PlayerRemoving:Connect(updNx2); updNx2()
     end
 
@@ -1018,11 +1437,9 @@ local function LoadNaxiumHub()
         L("Naxium Mini",mTop,UDim2.new(1,-50,1,0),UDim2.new(0,30,0,0),"White",Enum.TextXAlignment.Left,Enum.Font.GothamBold,11)
         local mClose=Instance.new("TextButton"); mClose.Size=UDim2.new(0,26,0,26); mClose.Position=UDim2.new(1,-6,0.5,0); mClose.AnchorPoint=Vector2.new(1,0.5); mClose.BackgroundTransparency=1; mClose.Text="X"; mClose.Font=Enum.Font.GothamBold; mClose.TextSize=13; mClose.TextColor3=C.Gray; mClose.Parent=mTop
         mClose.MouseEnter:Connect(function() mClose.TextColor3=Color3.fromRGB(235,75,75) end); mClose.MouseLeave:Connect(function() mClose.TextColor3=C.Gray end); mClose.MouseButton1Click:Connect(function() miniUI.Visible=false end)
-        
         mTop.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 then State.drg=true; State.drgSt=i.Position; State.drgPos=miniUI.Position; i.Changed:Connect(function() if i.UserInputState==Enum.UserInputState.End then State.drg=false end end) end end)
         mTop.InputChanged:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseMovement then State.drgInp=i end end)
         S.UIS.InputChanged:Connect(function(i) if i==State.drgInp and State.drg then local d=i.Position-State.drgSt; miniUI.Position=UDim2.new(State.drgPos.X.Scale,State.drgPos.X.Offset+d.X,State.drgPos.Y.Scale,State.drgPos.Y.Offset+d.Y) end end)
-        
         local mCont=Instance.new("Frame"); mCont.Size=UDim2.new(1,-16,1,-42); mCont.Position=UDim2.new(0,8,0,34); mCont.BackgroundColor3=C.DkBg; mCont.BackgroundTransparency=0.14; mCont.BorderSizePixel=0; mCont.Parent=miniUI; track(mCont,"BackgroundColor3","DkBg"); Instance.new("UICorner",mCont).CornerRadius=UDim.new(0,6)
         local mScroll=Instance.new("ScrollingFrame"); mScroll.Size=UDim2.new(1,0,1,0); mScroll.BackgroundTransparency=1; mScroll.BorderSizePixel=0; mScroll.ScrollBarThickness=2; mScroll.CanvasSize=UDim2.new(0,0,0,0); mScroll.AutomaticCanvasSize=Enum.AutomaticSize.Y; mScroll.ScrollBarImageColor3=C.Accent; mScroll.Parent=mCont
         local mPad=Instance.new("UIPadding"); mPad.PaddingLeft=UDim.new(0,6); mPad.PaddingRight=UDim.new(0,6); mPad.PaddingTop=UDim.new(0,6); mPad.PaddingBottom=UDim.new(0,6); mPad.Parent=mScroll
@@ -1054,7 +1471,7 @@ local function LoadNaxiumHub()
         local stLbl=Instance.new("TextLabel"); stLbl.Size=UDim2.new(1,-20,0,14); stLbl.Position=UDim2.new(0,10,0,152); stLbl.BackgroundTransparency=1; stLbl.Text=statusTxts[1]; stLbl.TextColor3=Color3.fromRGB(85,160,215); stLbl.Font=Enum.Font.GothamMedium; stLbl.TextSize=10; stLbl.TextXAlignment=Enum.TextXAlignment.Center; stLbl.Parent=sf
         local st2=Instance.new("TextLabel"); st2.Size=UDim2.new(1,0,0,28); st2.Position=UDim2.new(0,0,0,170); st2.BackgroundTransparency=1; st2.Text="NAXIUM HUB"; st2.Font=Enum.Font.GothamBold; st2.TextSize=20; st2.Parent=sf
         local tg3=Instance.new("UIGradient"); tg3.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(115,122,135)),ColorSequenceKeypoint.new(0.5,Color3.fromRGB(255,255,255)),ColorSequenceKeypoint.new(1,Color3.fromRGB(115,122,135))}); tg3.Rotation=90; tg3.Parent=st2
-        L("v1.3.0  |  Creatures of Sonaria",sf,UDim2.new(1,-20,0,12),UDim2.new(0,10,0,200),Color3.fromRGB(60,70,90),Enum.TextXAlignment.Center,Enum.Font.GothamMedium,8)
+        L("v1.4.0  |  Creatures of Sonaria",sf,UDim2.new(1,-20,0,12),UDim2.new(0,10,0,200),Color3.fromRGB(60,70,90),Enum.TextXAlignment.Center,Enum.Font.GothamMedium,8)
         local pbBg=Instance.new("Frame"); pbBg.Size=UDim2.new(1,-40,0,2); pbBg.Position=UDim2.new(0,20,0,220); pbBg.BackgroundColor3=Color3.fromRGB(22,30,44); pbBg.BorderSizePixel=0; pbBg.Parent=sf; Instance.new("UICorner",pbBg).CornerRadius=UDim.new(1,0)
         local pbFill=Instance.new("Frame"); pbFill.Size=UDim2.new(0,0,1,0); pbFill.BackgroundColor3=Color3.fromRGB(85,160,215); pbFill.BorderSizePixel=0; pbFill.Parent=pbBg; Instance.new("UICorner",pbFill).CornerRadius=UDim.new(1,0)
         task.spawn(function() for i3,txt in ipairs(statusTxts) do stLbl.Text=txt; S.Tween:Create(pbFill,TweenInfo.new(1.0,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),{Size=UDim2.new(i3/#statusTxts,0,1,0)}):Play(); task.wait(1.1) end end)
@@ -1070,23 +1487,26 @@ local function LoadNaxiumHub()
         si.MouseButton1Click:Connect(openMenu); task.delay(5,openMenu)
     end
 
+    -- Auto-load last config
     task.spawn(function()
         if readfile and isfile then
             pcall(function()
                 if isfile("NaxiumHub/autoload.txt") then
                     local last=readfile("NaxiumHub/autoload.txt")
                     if last and isfile("NaxiumHub/Configs/"..last..".json") then
-                        local json=readfile("NaxiumHub/Configs/"..last..".json"); local data=decodeData(json); for k,v in pairs(data) do State.saveData[k]=v end
-                        for _,el in ipairs(State.ConfigElements) do pcall(function() el.update(State.saveData[el.key]) end) end; applyTheme()
+                        local json=readfile("NaxiumHub/Configs/"..last..".json")
+                        local data=decodeData(json); for k,v in pairs(data) do State.saveData[k]=v end
+                        for _,el in ipairs(State.ConfigElements) do pcall(function() el.update(State.saveData[el.key]) end) end
+                        applyTheme()
                     end
                 end
             end)
         end
     end)
 
-    print("NaxiumHub v1.3.0 loaded!")
+    print("NaxiumHub v1.4.0 loaded!")
 
-    end)  -- end pcall
+    end) -- end pcall
 
     if not ok then
         warn("NaxiumHub ERROR: "..tostring(err))
@@ -1103,56 +1523,21 @@ end
 -- ============================================================
 if _G.NaxiumKey then
     print("NaxiumHub: Building Authentication UI...")
-    
     local Players = game:GetService("Players")
     local player = Players.LocalPlayer or Players:GetPropertyChangedSignal("LocalPlayer"):Wait() and Players.LocalPlayer
-    
     local targetParent
     pcall(function() targetParent = gethui() end)
     if not targetParent then pcall(function() targetParent = game:GetService("CoreGui") end) end
     if not targetParent then targetParent = player:WaitForChild("PlayerGui", 10) end
 
-    local authGui = Instance.new("ScreenGui")
-    authGui.Name = "NaxiumAuth_Verifying"
-    authGui.ResetOnSpawn = false
-    authGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    authGui.Parent = targetParent
-
-    local authFrame = Instance.new("Frame")
-    authFrame.Size = UDim2.new(0, 320, 0, 80)
-    authFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
-    authFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-    authFrame.BackgroundColor3 = Color3.fromRGB(11, 14, 20)
-    authFrame.BorderSizePixel = 0
-    authFrame.Parent = authGui
-    Instance.new("UICorner", authFrame).CornerRadius = UDim.new(0, 8)
-    
-    local authStroke = Instance.new("UIStroke")
-    authStroke.Color = Color3.fromRGB(85, 160, 215)
-    authStroke.Thickness = 1.5
-    authStroke.Transparency = 0.5
-    authStroke.Parent = authFrame
-
-    local authLabel = Instance.new("TextLabel")
-    authLabel.Size = UDim2.new(1, 0, 1, 0)
-    authLabel.BackgroundTransparency = 1
-    authLabel.Text = "Connecting to KeyAuth..."
-    authLabel.TextColor3 = Color3.fromRGB(212, 218, 228)
-    authLabel.Font = Enum.Font.GothamMedium
-    authLabel.TextSize = 13
-    authLabel.Parent = authFrame
-
-    task.wait(0.1) 
-
-    local isValid = VerifyKeyAuth(_G.NaxiumKey, authLabel)
-    
+    local authGui = Instance.new("ScreenGui"); authGui.Name="NaxiumAuth_Verifying"; authGui.ResetOnSpawn=false; authGui.ZIndexBehavior=Enum.ZIndexBehavior.Sibling; authGui.Parent=targetParent
+    local authFrame=Instance.new("Frame"); authFrame.Size=UDim2.new(0,320,0,80); authFrame.Position=UDim2.new(0.5,0,0.5,0); authFrame.AnchorPoint=Vector2.new(0.5,0.5); authFrame.BackgroundColor3=Color3.fromRGB(11,14,20); authFrame.BorderSizePixel=0; authFrame.Parent=authGui; Instance.new("UICorner",authFrame).CornerRadius=UDim.new(0,8)
+    local authStroke=Instance.new("UIStroke"); authStroke.Color=Color3.fromRGB(85,160,215); authStroke.Thickness=1.5; authStroke.Transparency=0.5; authStroke.Parent=authFrame
+    local authLabel=Instance.new("TextLabel"); authLabel.Size=UDim2.new(1,0,1,0); authLabel.BackgroundTransparency=1; authLabel.Text="Connecting to KeyAuth..."; authLabel.TextColor3=Color3.fromRGB(212,218,228); authLabel.Font=Enum.Font.GothamMedium; authLabel.TextSize=13; authLabel.Parent=authFrame
+    task.wait(0.1)
+    local isValid=VerifyKeyAuth(_G.NaxiumKey,authLabel)
     if authGui and authGui.Parent then authGui:Destroy() end
-    
-    if isValid then
-        LoadNaxiumHub()
-    else
-        game.Players.LocalPlayer:Kick("NaxiumHub: Invalid License Key or Hardware ID Mismatch.")
-    end
+    if isValid then LoadNaxiumHub() else game.Players.LocalPlayer:Kick("NaxiumHub: Invalid License Key or Hardware ID Mismatch.") end
 else
     warn("NaxiumHub: No key found! Please set _G.NaxiumKey before running.")
 end
