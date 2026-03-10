@@ -105,7 +105,7 @@ local function LoadNaxiumHub()
     print("NaxiumHub: executing...")
     local ok, err = pcall(function()
 
-    -- CONSOLIDATED SERVICES (Fixes the 200 local variables limit)
+    -- CONSOLIDATED SERVICES
     local S = {
         Players = game:GetService("Players"),
         Tween = game:GetService("TweenService"),
@@ -185,7 +185,7 @@ local function LoadNaxiumHub()
     if not targetParent then pcall(function() targetParent = game:GetService("CoreGui") end) end
     if not targetParent then targetParent = player:WaitForChild("PlayerGui", 10) end
 
-    UI.gui = Instance.new("ScreenGui"); UI.gui.Name = "NaxiumHub"; UI.gui.ResetOnSpawn = false; UI.gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling; UI.gui.Parent = targetParent
+    UI.gui = Instance.new("ScreenGui"); UI.gui.Name = "NaxiumHub"; UI.gui.ResetOnSpawn = false; UI.gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling; UI.gui.IgnoreGuiInset = true; UI.gui.Parent = targetParent
 
     local function L(txt, par, sz, pos, col, ax, fnt, ts)
         local lb = Instance.new("TextLabel"); lb.Text = txt or ""; lb.Parent = par; lb.Size = sz or UDim2.new(1,0,0,18); lb.Position = pos or UDim2.new(0,0,0,0)
@@ -342,10 +342,15 @@ local function LoadNaxiumHub()
     -- TOP HUD & MAIN FRAME
     -- ============================================================
     UI.mf = Instance.new("Frame")
-    local showHud = ld("showHud", false)
     
-    UI.topHud = Instance.new("Frame"); UI.topHud.Size = UDim2.new(0, 200, 0, 36); UI.topHud.Position = UDim2.new(0.5, 0, 0, 10); UI.topHud.AnchorPoint = Vector2.new(0.5, 0); UI.topHud.BackgroundTransparency = 1; UI.topHud.BorderSizePixel = 0; UI.topHud.Visible = showHud; UI.topHud.Parent = UI.gui
+    -- DEFAULT TO TRUE ON EXECUTE
+    local showHud = ld("showHud", true)
     
+    -- Draggable & Sleek HUD
+    UI.topHud = Instance.new("Frame"); UI.topHud.Size = UDim2.new(0, 200, 0, 36); UI.topHud.Position = UDim2.new(0.5, 0, 0, 10); UI.topHud.AnchorPoint = Vector2.new(0.5, 0); UI.topHud.BackgroundColor3 = C.DkBg; UI.topHud.BackgroundTransparency = 0.35; UI.topHud.BorderSizePixel = 0; UI.topHud.Visible = showHud; UI.topHud.Parent = UI.gui
+    track(UI.topHud, "BackgroundColor3", "DkBg"); Instance.new("UICorner", UI.topHud).CornerRadius = UDim.new(0, 8)
+    local topHudStr = Instance.new("UIStroke"); topHudStr.Thickness = 1.5; topHudStr.Transparency = 0.5; topHudStr.Parent = UI.topHud; track(topHudStr, "Color", "Accent")
+
     UI.fpsLbl = L("0 FPS", UI.topHud, UDim2.new(0.5,-25,1,0), UDim2.new(0,15,0,0), "White", Enum.TextXAlignment.Left, Enum.Font.GothamBold, 12)
     UI.fpsLbl.TextStrokeTransparency = 0.1; UI.fpsLbl.TextStrokeColor3 = Color3.new(0,0,0)
     
@@ -393,11 +398,27 @@ local function LoadNaxiumHub()
     UI.mf.Name = "Main"; UI.mf.Size = UDim2.new(0,800,0,440); UI.mf.Position = UDim2.new(0.5,0,0.5,0); UI.mf.AnchorPoint = Vector2.new(0.5,0.5); UI.mf.BackgroundColor3 = C.Bg; UI.mf.BackgroundTransparency = 0.06; UI.mf.BorderSizePixel = 0; UI.mf.Visible = false; UI.mf.ClipsDescendants = true; UI.mf.Parent = UI.gui; track(UI.mf,"BackgroundColor3","Bg"); Instance.new("UICorner", UI.mf).CornerRadius = UDim.new(0, 10)
     
     local DEF_BG = "rbxassetid://75254466518091"
-    UI.bgImg = Instance.new("ImageLabel"); UI.bgImg.Size = UDim2.new(1,0,1,0); UI.bgImg.BackgroundTransparency = 1; UI.bgImg.Image = ld("bg_img", DEF_BG); UI.bgImg.ImageTransparency = 0.7; UI.bgImg.ScaleType = Enum.ScaleType.Crop; UI.bgImg.ZIndex = 0; UI.bgImg.Parent = UI.mf
+    UI.bgImg = Instance.new("ImageLabel"); UI.bgImg.BackgroundTransparency = 1; UI.bgImg.Image = ld("bg_img", DEF_BG); UI.bgImg.ImageTransparency = 0.85; UI.bgImg.ZIndex = 0; UI.bgImg.Parent = UI.mf
+    
+    -- Smart Background Scaler (Watermarks the Naxium logo, Stretches custom wallpapers)
+    local function updateBgScaling(imgStr)
+        if imgStr == "" or string.find(imgStr, "75254466518091") then
+            UI.bgImg.Size = UDim2.new(0.6, 0, 0.6, 0)
+            UI.bgImg.Position = UDim2.new(0.5, 0, 0.5, 0)
+            UI.bgImg.AnchorPoint = Vector2.new(0.5, 0.5)
+            UI.bgImg.ScaleType = Enum.ScaleType.Fit
+        else
+            UI.bgImg.Size = UDim2.new(1, 0, 1, 0)
+            UI.bgImg.Position = UDim2.new(0.5, 0, 0.5, 0)
+            UI.bgImg.AnchorPoint = Vector2.new(0.5, 0.5)
+            UI.bgImg.ScaleType = Enum.ScaleType.Crop
+        end
+    end
+    updateBgScaling(UI.bgImg.Image)
     
     table.insert(State.ConfigElements, {
         key = "bg_img", default = DEF_BG,
-        update = function(v) if v then UI.bgImg.Image = v end end
+        update = function(v) if v then UI.bgImg.Image = v; updateBgScaling(v) end end
     })
 
     UI.bStr = Instance.new("UIStroke"); UI.bStr.ApplyStrokeMode = Enum.ApplyStrokeMode.Border; UI.bStr.Thickness = 1.5; UI.bStr.Transparency = 0.5; UI.bStr.Parent = UI.mf; track(UI.bStr,"Color","Accent")
@@ -443,6 +464,9 @@ local function LoadNaxiumHub()
     UI.HT = tFrames[1]; UI.SAT = tFrames[2]; UI.VT = tFrames[3]; UI.THT = tFrames[4]; UI.CFG = tFrames[5]; UI.SET = tFrames[6]
     local W_HALF = 375; local W_L3 = 245; local W_M3 = 245; local W_R3 = 250
     local fetchRank = function(p, cb) task.spawn(function() local ok1,rv = pcall(function() return p:GetRankInGroup(2919215) end); local ok2,rn = pcall(function() return p:GetRoleInGroup(2919215) end); local r = ok1 and rv or 0; local n = (ok2 and rn and r>0) and rn or "N/A"; State.rankCache[p.UserId] = {rank=r,name=n}; pcall(cb,r,n) end) end
+
+    -- GLOBAL VARS FOR TABS
+    local refreshList, setRainbow, miniUI, miniBtn
 
     -- ============================================================
     -- HOME TAB
@@ -612,7 +636,7 @@ local function LoadNaxiumHub()
         local glLogo=Instance.new("ImageLabel"); glLogo.Size=UDim2.new(0.5,0,0.5,0); glLogo.Position=UDim2.new(0.5,0,0.5,0); glLogo.AnchorPoint=Vector2.new(0.5,0.5); glLogo.Image="rbxassetid://75254466518091"; glLogo.ImageTransparency=0.85; glLogo.BackgroundTransparency=1; glLogo.ScaleType=Enum.ScaleType.Fit; glLogo.Parent=glSw
         local gH,gS,gV=Color3.toHSV(esp.glowColor)
         local function updGlow()
-            local c=Color3.fromHSV(gH,gS,gV); esp.glowColor=c; glSw.BackgroundColor3=c
+            local c=Color3.fromHSV(gH,gS,gV); esp.glowColor=c; glSw.BackgroundColor3=c; sv("esp_cH",gH); sv("esp_cS",gS); sv("esp_cV",gV)
             for _,d in pairs(espData) do if d.hl then d.hl.FillColor=c; d.hl.OutlineColor=c end end
         end
         gH=ld("esp_cH",gH); gS=ld("esp_cS",gS); gV=ld("esp_cV",gV); updGlow()
@@ -835,7 +859,7 @@ local function LoadNaxiumHub()
             State.saveData={}
             if delfile and isfile then pcall(function() if isfile("NaxiumHub/autoload.txt") then delfile("NaxiumHub/autoload.txt") end end) end
             for _,el in ipairs(State.ConfigElements) do pcall(function() el.update(el.default) end) end
-            setRainbow(false)
+            setRainbow(false); C.Bg=Color3.fromRGB(11,14,20); C.DkBg=Color3.fromRGB(7,9,13); C.Accent=Color3.fromRGB(85,160,215); C.Card=Color3.fromRGB(14,18,26); C.Tab=Color3.fromRGB(26,34,48); applyTheme()
             cfgResetBtn.Text="  Done! All reset."; task.delay(1.5,function() cfgResetBtn.Text="  Reset All to Default" end)
         end)
     end
@@ -846,7 +870,7 @@ local function LoadNaxiumHub()
     do
         local perfCard=mkCard(UI.SET,UDim2.new(0,W_HALF,0,285),UDim2.new(0,0,0,0)); mkHdr(perfCard,"PERFORMANCE & HUD",6)
         local PY=24
-        mkTog(perfCard,"Show FPS/Ping Overlay",PY,"showHud",false,function(v) showHud=v; UI.topHud.Visible=v end) PY=PY+30
+        mkTog(perfCard,"Show FPS/Ping Overlay",PY,"showHud",true,function(v) showHud=v; UI.topHud.Visible=v end) PY=PY+30
         local origMats={}
         mkTog(perfCard,"Plastic Textures (FPS Boost)",PY,"plas_tex",false,function(v)
             if v then for _,p in ipairs(workspace:GetDescendants()) do if p:IsA("BasePart") then origMats[p]=p.Material; p.Material=Enum.Material.SmoothPlastic end end
