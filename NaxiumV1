@@ -479,50 +479,6 @@ local function LoadNaxiumHub()
 
     UI.bStr=Instance.new("UIStroke"); UI.bStr.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; UI.bStr.Thickness=1.5; UI.bStr.Transparency=0.5; UI.bStr.Parent=UI.mf; track(UI.bStr,"Color","Accent")
 
-    -- ── LIVING CREATURE OUTLINE ─────────────────────────────────
-    -- Four organic "claw" marks in corners that pulse and drift
-    -- giving the UI a sense of being alive, like it's breathing
-    local function mkCornerClaw(parent, anchorX, anchorY, rx, ry)
-        local g=Instance.new("Frame"); g.Size=UDim2.new(0,28,0,28)
-        g.AnchorPoint=Vector2.new(anchorX,anchorY)
-        g.Position=UDim2.new(anchorX,rx,anchorY,ry)
-        g.BackgroundTransparency=1; g.BorderSizePixel=0; g.ZIndex=15; g.Parent=parent
-        -- Two curved stroke bars per corner
-        for j=1,2 do
-            local bar=Instance.new("Frame")
-            bar.BorderSizePixel=0; bar.ZIndex=15
-            bar.BackgroundColor3=C.Accent; bar.Parent=g
-            track(bar,"BackgroundColor3","Accent")
-            if j==1 then
-                bar.Size=UDim2.new(0,18,0,2); bar.Position=UDim2.new(anchorX,anchorX==0 and 0 or -18,0,anchorY==0 and 0 or 26)
-            else
-                bar.Size=UDim2.new(0,2,0,18); bar.Position=UDim2.new(anchorX,anchorX==0 and 0 or 26,0,anchorY==0 and 0 or -18)
-            end
-            Instance.new("UICorner",bar).CornerRadius=UDim.new(1,0)
-        end
-        return g
-    end
-    local claws={
-        mkCornerClaw(UI.mf,0,0,  -1,-1),
-        mkCornerClaw(UI.mf,1,0,   1,-1),
-        mkCornerClaw(UI.mf,0,1,  -1, 1),
-        mkCornerClaw(UI.mf,1,1,   1, 1),
-    }
-    -- Breathe animation: claws scale in/out in sequence like a heartbeat
-    local clawPhase=0
-    S.RS.Heartbeat:Connect(function(dt)
-        clawPhase=clawPhase+dt*0.9
-        for i,claw in ipairs(claws) do
-            local offset=math.sin(clawPhase+(i-1)*math.pi*0.5)*0.65
-            claw.BackgroundTransparency=0 -- container
-            for _,bar in ipairs(claw:GetChildren()) do
-                if bar:IsA("Frame") then
-                    bar.BackgroundTransparency=math.clamp(0.35-offset*0.3,0.05,0.75)
-                end
-            end
-        end
-    end)
-
     -- Top bar + drag
     UI.topBar=Instance.new("Frame"); UI.topBar.Size=UDim2.new(1,0,0,30); UI.topBar.BackgroundTransparency=1; UI.topBar.Active=true; UI.topBar.ZIndex=10; UI.topBar.Parent=UI.mf
     local logoSmall=Instance.new("ImageLabel"); logoSmall.Size=UDim2.new(0,14,0,14); logoSmall.Position=UDim2.new(0,12,0.5,0); logoSmall.AnchorPoint=Vector2.new(0,0.5); logoSmall.BackgroundTransparency=1; logoSmall.Image="rbxassetid://75254466518091"; logoSmall.Parent=UI.topBar
@@ -1054,7 +1010,6 @@ local function LoadNaxiumHub()
             local closeBtn=Instance.new("TextButton"); closeBtn.Size=UDim2.new(0.5,-10,0,30); closeBtn.Position=UDim2.new(0.5,4,0,158); closeBtn.BackgroundColor3=Color3.fromRGB(18,24,34); closeBtn.BackgroundTransparency=0.2; closeBtn.BorderSizePixel=0; closeBtn.Text="Close"; closeBtn.Font=Enum.Font.GothamBold; closeBtn.TextSize=11; closeBtn.TextColor3=C.Gray; closeBtn.ZIndex=502; closeBtn.Parent=box; Instance.new("UICorner",closeBtn).CornerRadius=UDim.new(0,6)
             closeBtn.MouseButton1Click:Connect(function() modal:Destroy() end)
             
-            -- FIX: Changed expression to standard assignment
             modal.Active = true -- absorb clicks
         end
 
@@ -1279,35 +1234,34 @@ local function LoadNaxiumHub()
     -- BOTTOM BAR
     -- ============================================================
     do
-        local bb2=Instance.new("Frame"); bb2.Size=UDim2.new(1,-20,0,32); bb2.Position=UDim2.new(0,10,0,398); bb2.BackgroundColor3=C.DkBg; bb2.BackgroundTransparency=0.12; bb2.BorderSizePixel=0; bb2.Parent=UI.mf; track(bb2,"BackgroundColor3","DkBg"); Instance.new("UICorner",bb2).CornerRadius=UDim.new(0,7)
+        local bb2=Instance.new("Frame"); bb2.Size=UDim2.new(1,-20,0,38); bb2.Position=UDim2.new(0,10,0,392); bb2.BackgroundColor3=C.DkBg; bb2.BackgroundTransparency=0.12; bb2.BorderSizePixel=0; bb2.Parent=UI.mf; track(bb2,"BackgroundColor3","DkBg"); Instance.new("UICorner",bb2).CornerRadius=UDim.new(0,7)
         L("Game Status  |  CoS v2.5.1  [OK]",bb2,UDim2.new(0.33,0,1,0),UDim2.new(0,10,0,0),"Gray",Enum.TextXAlignment.Left,Enum.Font.GothamMedium,10)
 
-        -- Build rich account + expiry label
+        -- Build rich account + expiry label (No dot, vertically stacked)
         local function buildAccText()
             local subColor="#41bb6a" -- green
-            local dot="●"
             local expStr=""
             if _G.NaxiumExpiry then
                 local tl=_G.NaxiumExpiry-os.time()
                 if tl>315360000 then
-                    expStr=' <font color="#9b7fe8">∞ Lifetime</font>'
+                    expStr='<font color="#9b7fe8">∞ Lifetime</font>'
                 elseif tl>0 then
                     local d=math.floor(tl/86400)
-                    if d>30 then expStr=' <font color="#41bb6a">· '..d..'d left</font>'
-                    elseif d>7 then expStr=' <font color="#fcc03e">· '..d..'d left</font>'
-                    elseif d>0 then expStr=' <font color="#d24141">· '..d..'d left</font>'
+                    if d>30 then expStr='<font color="#41bb6a">'..d..'d left</font>'
+                    elseif d>7 then expStr='<font color="#fcc03e">'..d..'d left</font>'
+                    elseif d>0 then expStr='<font color="#d24141">'..d..'d left</font>'
                     else
                         local h=math.floor((tl%86400)/3600)
-                        expStr=' <font color="#d24141">· '..h..'h left</font>'
+                        expStr='<font color="#d24141">'..h..'h left</font>'
                     end
                 else
-                    subColor="#d24141"; dot="●"; expStr=' <font color="#d24141">Expired</font>'
+                    subColor="#d24141"; expStr='<font color="#d24141">Expired</font>'
                 end
             end
-            return '<font color="#'..subColor..'">'..dot..'</font> <font color="#c8d0dc">Naxium</font> <font color="'..subColor..'">Active</font>'..expStr
+            return '<font color="#c8d0dc">Naxium</font>\n<font color="'..subColor..'">Active</font>\n'..expStr
         end
 
-        local accLbl2=Instance.new("TextLabel"); accLbl2.Size=UDim2.new(0.34,0,1,0); accLbl2.Position=UDim2.new(0.33,0,0,0); accLbl2.BackgroundTransparency=1; accLbl2.RichText=true; accLbl2.Font=Enum.Font.GothamBold; accLbl2.TextSize=10; accLbl2.TextXAlignment=Enum.TextXAlignment.Center; accLbl2.Parent=bb2
+        local accLbl2=Instance.new("TextLabel"); accLbl2.Size=UDim2.new(0.34,0,1,0); accLbl2.Position=UDim2.new(0.33,0,0,0); accLbl2.BackgroundTransparency=1; accLbl2.RichText=true; accLbl2.Font=Enum.Font.GothamBold; accLbl2.TextSize=9; accLbl2.TextXAlignment=Enum.TextXAlignment.Center; accLbl2.TextYAlignment=Enum.TextYAlignment.Center; accLbl2.Parent=bb2
         accLbl2.Text=buildAccText()
 
         local psF2=Instance.new("Frame"); psF2.Size=UDim2.new(0.33,0,1,0); psF2.Position=UDim2.new(0.66,0,0,0); psF2.BackgroundTransparency=1; psF2.Parent=bb2
