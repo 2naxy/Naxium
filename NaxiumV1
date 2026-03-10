@@ -86,6 +86,48 @@ local function LoadNaxiumHub()
     State.saveData = _G.NaxiumSave or {}
 
     local UI = {}
+
+    -- ── MENU CONTROLLER (hoisted so all sections can reference) ──
+    -- Actual implementations are assigned below once UI.mf and miniUI exist.
+    -- Stubs prevent any "attempt to call nil" if something fires early.
+    local mfIsOpen  = false
+    local miniIsOpen= false
+    local openMainMenu, closeMainMenu, toggleMainMenu
+    local openMiniUI,   closeMiniUI
+
+    openMainMenu = function()
+        if mfIsOpen then return end; mfIsOpen=true
+        if not UI.mf then return end
+        UI.mf.Visible=true
+        UI.mf.Size=UDim2.new(0,800,0,0)
+        UI.mf.BackgroundTransparency=1
+        S.Tween:Create(UI.mf,TweenInfo.new(0.38,Enum.EasingStyle.Back,Enum.EasingDirection.Out),
+            {Size=UDim2.new(0,800,0,440),BackgroundTransparency=0.06}):Play()
+    end
+    closeMainMenu = function()
+        if not mfIsOpen then return end; mfIsOpen=false
+        if not UI.mf then return end
+        S.Tween:Create(UI.mf,TweenInfo.new(0.28,Enum.EasingStyle.Quad,Enum.EasingDirection.In),
+            {Size=UDim2.new(0,800,0,0),BackgroundTransparency=1}):Play()
+        task.delay(0.3,function() if UI.mf then UI.mf.Visible=false end end)
+    end
+    toggleMainMenu = function()
+        if mfIsOpen then closeMainMenu() else openMainMenu() end
+    end
+    openMiniUI = function()
+        if miniIsOpen then return end; miniIsOpen=true
+        if not miniUI then return end
+        miniUI.Visible=true; miniUI.Size=UDim2.new(0,0,0,0); miniUI.BackgroundTransparency=1
+        S.Tween:Create(miniUI,TweenInfo.new(0.32,Enum.EasingStyle.Back,Enum.EasingDirection.Out),
+            {Size=UDim2.new(0,240,0,310),BackgroundTransparency=0.06}):Play()
+    end
+    closeMiniUI = function()
+        if not miniIsOpen then return end; miniIsOpen=false
+        if not miniUI then return end
+        S.Tween:Create(miniUI,TweenInfo.new(0.22,Enum.EasingStyle.Quad,Enum.EasingDirection.In),
+            {Size=UDim2.new(0,240,0,0),BackgroundTransparency=1}):Play()
+        task.delay(0.25,function() if miniUI then miniUI.Visible=false end end)
+    end
     local function sv(k,v) pcall(function() State.saveData[k]=v end) end
     local function ld(k,def) local ok2,v=pcall(function() return State.saveData[k] end); return (ok2 and v~=nil) and v or def end
 
@@ -386,9 +428,7 @@ local function LoadNaxiumHub()
         if State.hDrg and (i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch) then
             State.hDrg=false
             if not State.hMoved and (tick()-State.hClickTime)<0.25 then
-                -- Use animated toggle once settings tab creates the functions
-                if _G._NaxiumToggle then _G._NaxiumToggle()
-                else UI.mf.Visible=not UI.mf.Visible end
+                toggleMainMenu()
             end
         end
     end)
@@ -1209,35 +1249,7 @@ local function LoadNaxiumHub()
         local rejBtn=Instance.new("TextButton"); rejBtn.Size=UDim2.new(0.5,-15,0,20); rejBtn.Position=UDim2.new(0.5,5,0,24); rejBtn.BackgroundColor3=C.Tab; rejBtn.BorderSizePixel=0; rejBtn.Text="Rejoin Server"; rejBtn.Font=Enum.Font.GothamBold; rejBtn.TextSize=10; rejBtn.TextColor3=C.White; rejBtn.Parent=srvCard; Instance.new("UICorner",rejBtn).CornerRadius=UDim.new(0,4); track(rejBtn,"BackgroundColor3","Tab")
         rejBtn.MouseButton1Click:Connect(function() rejBtn.Text="Rejoining..."; game:GetService("TeleportService"):TeleportToPlaceInstance(game.PlaceId,game.JobId,player) end)
 
-        -- ── Animated open / close for main menu ────────────────
-        local mfIsOpen=false
-        local function openMainMenu()
-            if mfIsOpen then return end; mfIsOpen=true
-            UI.mf.Visible=true; UI.mf.Size=UDim2.new(0,800,0,0); UI.mf.Position=UDim2.new(0.5,0,0.5,0); UI.mf.BackgroundTransparency=1
-            S.Tween:Create(UI.mf,TweenInfo.new(0.38,Enum.EasingStyle.Back,Enum.EasingDirection.Out),{Size=UDim2.new(0,800,0,440),BackgroundTransparency=0.06}):Play()
-        end
-        local function closeMainMenu()
-            if not mfIsOpen then return end; mfIsOpen=false
-            S.Tween:Create(UI.mf,TweenInfo.new(0.28,Enum.EasingStyle.Quad,Enum.EasingDirection.In),{Size=UDim2.new(0,800,0,0),BackgroundTransparency=1}):Play()
-            task.delay(0.3,function() UI.mf.Visible=false end)
-        end
-        local function toggleMainMenu()
-            if mfIsOpen then closeMainMenu() else openMainMenu() end
-        end
-
-        -- ── Animated open / close for mini UI ──────────────────
-        local miniIsOpen=false
-        local function openMiniUI()
-            if miniIsOpen then return end; miniIsOpen=true
-            miniUI.Visible=true; miniUI.Size=UDim2.new(0,0,0,0); miniUI.BackgroundTransparency=1
-            S.Tween:Create(miniUI,TweenInfo.new(0.32,Enum.EasingStyle.Back,Enum.EasingDirection.Out),{Size=UDim2.new(0,240,0,310),BackgroundTransparency=0.06}):Play()
-        end
-        local function closeMiniUI()
-            if not miniIsOpen then return end; miniIsOpen=false
-            S.Tween:Create(miniUI,TweenInfo.new(0.22,Enum.EasingStyle.Quad,Enum.EasingDirection.In),{Size=UDim2.new(0,240,0,0),BackgroundTransparency=1}):Play()
-            task.delay(0.25,function() miniUI.Visible=false end)
-        end
-
+        -- ── Keybind handler ─────────────────────────────────────
         S.UIS.InputBegan:Connect(function(i,gp)
             if not gp and i.UserInputType==Enum.UserInputType.Keyboard then
                 if listening then hideKey=i.KeyCode.Name; sv("hideMenuKey",hideKey); keyLbl2.Text="Key: "..tostring(hideKey); skBtn.Text="Set Key"; listening=false
@@ -1248,11 +1260,6 @@ local function LoadNaxiumHub()
                 end
             end
         end)
-        -- Store in _G so other wired buttons (HUD logo, mini close) can call them
-        _G._NaxiumToggle = toggleMainMenu
-        _G._NaxiumToggleMini = function() if miniIsOpen then closeMiniUI() else openMiniUI() end end
-        _G._NaxiumCloseMini = closeMiniUI
-
         S.Players.PlayerAdded:Connect(function(p) task.wait(2); checkStaffLogic(p) end)
         S.Players.PlayerRemoving:Connect(function(p) notifiedStaff[p]=nil end)
     end
@@ -1308,9 +1315,7 @@ local function LoadNaxiumHub()
         local mStr=Instance.new("UIStroke"); mStr.Thickness=1.5; mStr.Transparency=0.5; mStr.Parent=miniUI; track(mStr,"Color","Accent")
         local mTop=Instance.new("Frame"); mTop.Size=UDim2.new(1,0,0,32); mTop.BackgroundTransparency=1; mTop.Active=true; mTop.ZIndex=10; mTop.Parent=miniUI; local mLogo=Instance.new("ImageLabel"); mLogo.Size=UDim2.new(0,14,0,14); mLogo.Position=UDim2.new(0,12,0.5,0); mLogo.AnchorPoint=Vector2.new(0,0.5); mLogo.BackgroundTransparency=1; mLogo.Image="rbxassetid://75254466518091"; mLogo.Parent=mTop; L("Naxium Mini",mTop,UDim2.new(1,-50,1,0),UDim2.new(0,30,0,0),"White",Enum.TextXAlignment.Left,Enum.Font.GothamBold,11)
         local mClose=Instance.new("TextButton"); mClose.Size=UDim2.new(0,26,0,26); mClose.Position=UDim2.new(1,-6,0.5,0); mClose.AnchorPoint=Vector2.new(1,0.5); mClose.BackgroundTransparency=1; mClose.Text="X"; mClose.Font=Enum.Font.GothamBold; mClose.TextSize=13; mClose.TextColor3=C.Gray; mClose.Parent=mTop; mClose.MouseEnter:Connect(function() mClose.TextColor3=Color3.fromRGB(235,75,75) end); mClose.MouseLeave:Connect(function() mClose.TextColor3=C.Gray end)
-        mClose.MouseButton1Click:Connect(function()
-            if _G._NaxiumCloseMini then _G._NaxiumCloseMini() else miniUI.Visible=false end
-        end)
+        mClose.MouseButton1Click:Connect(function() closeMiniUI() end)
         mTop.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 then State.drg=true; State.drgSt=i.Position; State.drgPos=miniUI.Position; i.Changed:Connect(function() if i.UserInputState==Enum.UserInputState.End then State.drg=false end end) end end)
         mTop.InputChanged:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseMovement then State.drgInp=i end end)
         S.UIS.InputChanged:Connect(function(i) if i==State.drgInp and State.drg then local d=i.Position-State.drgSt; miniUI.Position=UDim2.new(State.drgPos.X.Scale,State.drgPos.X.Offset+d.X,State.drgPos.Y.Scale,State.drgPos.Y.Offset+d.Y) end end)
@@ -1321,7 +1326,7 @@ local function LoadNaxiumHub()
         local function mkMiniHdr(txt) local h=Instance.new("Frame"); h.Size=UDim2.new(1,0,0,20); h.BackgroundTransparency=1; h.Parent=mScroll; L(txt,h,UDim2.new(1,-4,1,0),UDim2.new(0,4,0,0),"Accent",Enum.TextXAlignment.Left,Enum.Font.GothamBold,10); local d=Instance.new("Frame"); d.Size=UDim2.new(1,-8,0,1); d.Position=UDim2.new(0,4,1,-2); d.BackgroundColor3=C.Accent; d.BackgroundTransparency=0.72; d.BorderSizePixel=0; d.Parent=h; track(d,"BackgroundColor3","Accent") end
         mkMiniHdr("VISUALS"); mkTog(mScroll,"Enable ESP",0,"esp_en",false,nil,"ESP"); mkTog(mScroll,"Player Glow",0,"esp_glw",true,nil,"Glow")
         mkMiniHdr("SAFE"); mkTog(mScroll,"Proximity Alerts",0,"prox_en",false,nil,"Prox"); mkTog(mScroll,"Unlock Camera",0,"cam_en",false,nil,"Cam")
-        miniBtn.MouseButton1Click:Connect(function() if _G._NaxiumToggleMini then _G._NaxiumToggleMini() else miniUI.Visible=not miniUI.Visible end end)
+        miniBtn.MouseButton1Click:Connect(function() if miniIsOpen then closeMiniUI() else openMiniUI() end end)
     end
 
     -- ============================================================
@@ -1345,12 +1350,7 @@ local function LoadNaxiumHub()
             for _,ch in ipairs(sf:GetDescendants()) do if ch:IsA("TextLabel") or ch:IsA("ImageLabel") or ch:IsA("UIStroke") then pcall(function() S.Tween:Create(ch,TweenInfo.new(0.55),{Transparency=1}):Play() end); pcall(function() S.Tween:Create(ch,TweenInfo.new(0.55),{TextTransparency=1}):Play() end); pcall(function() S.Tween:Create(ch,TweenInfo.new(0.55),{ImageTransparency=1}):Play() end) end end
             task.delay(0.6,function()
                 if sf.Parent then sf:Destroy() end
-                -- Use animated open if available, else plain show
-                if _G._NaxiumToggle then
-                    UI.mf.Visible=false
-                    task.wait(0.05)
-                    _G._NaxiumToggle()
-                else UI.mf.Visible=true end
+                openMainMenu()
                 -- Play startup sound
                 pcall(function()
                     local snd=Instance.new("Sound"); snd.SoundId="rbxassetid://6599575767"; snd.Volume=0.75; snd.Parent=S.Sound; snd:Play()
