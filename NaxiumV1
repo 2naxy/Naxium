@@ -307,10 +307,17 @@ local function LoadNaxiumHub()
     local mf = Instance.new("Frame")
     local showHud = ld("showHud", false)
     
-    local topHud = Instance.new("Frame"); topHud.Size = UDim2.new(0, 160, 0, 26); topHud.Position = UDim2.new(0.5, 0, 0, 4); topHud.AnchorPoint = Vector2.new(0.5, 0); topHud.BackgroundTransparency = 1; topHud.BorderSizePixel = 0; topHud.Visible = showHud; topHud.Parent = gui
-    local fpsLbl = L("0 FPS", topHud, UDim2.new(0.5,-20,1,0), UDim2.new(0,12,0,0), "White", Enum.TextXAlignment.Left, Enum.Font.GothamBold, 10)
-    local pingLbl = L("0 ms", topHud, UDim2.new(0.5,-20,1,0), UDim2.new(0.5,8,0,0), "White", Enum.TextXAlignment.Right, Enum.Font.GothamBold, 10)
-    local hudLogo = Instance.new("ImageButton"); hudLogo.Size = UDim2.new(0,14,0,14); hudLogo.Position = UDim2.new(0.5,0,0.5,0); hudLogo.AnchorPoint = Vector2.new(0.5,0.5); hudLogo.BackgroundTransparency = 1; hudLogo.Image = "rbxassetid://75254466518091"; hudLogo.Parent = topHud
+    -- Draggable & TextStroke HUD
+    local topHud = Instance.new("Frame"); topHud.Size = UDim2.new(0, 200, 0, 36); topHud.Position = UDim2.new(0.5, 0, 0, 10); topHud.AnchorPoint = Vector2.new(0.5, 0); topHud.BackgroundTransparency = 1; topHud.BorderSizePixel = 0; topHud.Visible = showHud; topHud.Parent = gui
+    
+    local fpsLbl = L("0 FPS", topHud, UDim2.new(0.5,-25,1,0), UDim2.new(0,15,0,0), "White", Enum.TextXAlignment.Left, Enum.Font.GothamBold, 12)
+    fpsLbl.TextStrokeTransparency = 0.1; fpsLbl.TextStrokeColor3 = Color3.new(0,0,0)
+    
+    local pingLbl = L("0 ms", topHud, UDim2.new(0.5,-25,1,0), UDim2.new(0.5,10,0,0), "White", Enum.TextXAlignment.Right, Enum.Font.GothamBold, 12)
+    pingLbl.TextStrokeTransparency = 0.1; pingLbl.TextStrokeColor3 = Color3.new(0,0,0)
+    
+    local hudLogo = Instance.new("ImageButton"); hudLogo.Size = UDim2.new(0,24,0,24); hudLogo.Position = UDim2.new(0.5,0,0.5,0); hudLogo.AnchorPoint = Vector2.new(0.5,0.5); hudLogo.BackgroundTransparency = 1; hudLogo.Image = "rbxassetid://75254466518091"; hudLogo.ZIndex = 2; hudLogo.Parent = topHud
+    local logoShadow = Instance.new("ImageLabel"); logoShadow.Size = UDim2.new(1,2,1,2); logoShadow.Position = UDim2.new(0.5,0,0.5,2); logoShadow.AnchorPoint = Vector2.new(0.5,0.5); logoShadow.BackgroundTransparency = 1; logoShadow.Image = "rbxassetid://75254466518091"; logoShadow.ImageColor3 = Color3.new(0,0,0); logoShadow.ImageTransparency = 0.4; logoShadow.ZIndex = 1; logoShadow.Parent = hudLogo
     
     hudLogo.MouseEnter:Connect(function() TweenService:Create(hudLogo,TweenInfo.new(0.15),{ImageColor3=C.Accent}):Play() end)
     hudLogo.MouseLeave:Connect(function() TweenService:Create(hudLogo,TweenInfo.new(0.15),{ImageColor3=Color3.new(1,1,1)}):Play() end)
@@ -403,6 +410,41 @@ local function LoadNaxiumHub()
     local refreshList, setRainbow, miniUI, miniBtn
 
     -- ============================================================
+    -- SILENT CHAT HANDSHAKE (Naxium Cross-Player Detection)
+    -- ============================================================
+    local knownNaxiumUsers = {}
+    local function setupChatDetection(p)
+        p.Chatted:Connect(function(msg)
+            if msg == "/e nx_ping" or msg == "/e nx_pong" then
+                knownNaxiumUsers[p] = true
+                if msg == "/e nx_ping" and p ~= player then
+                    pcall(function() 
+                        if game:GetService("TextChatService").ChatVersion == Enum.ChatVersion.TextChatService then
+                            game:GetService("TextChatService").TextChannels.RBXGeneral:SendAsync("/e nx_pong")
+                        else
+                            game:GetService("ReplicatedStorage").DefaultChatSystemChatEvents.SayMessageRequest:FireServer("/e nx_pong", "All")
+                        end
+                    end)
+                end
+                if refreshList then refreshList() end
+            end
+        end)
+    end
+    for _, p in ipairs(Players:GetPlayers()) do setupChatDetection(p) end
+    Players.PlayerAdded:Connect(setupChatDetection)
+
+    task.spawn(function()
+        task.wait(3)
+        pcall(function() 
+            if game:GetService("TextChatService").ChatVersion == Enum.ChatVersion.TextChatService then
+                game:GetService("TextChatService").TextChannels.RBXGeneral:SendAsync("/e nx_ping")
+            else
+                game:GetService("ReplicatedStorage").DefaultChatSystemChatEvents.SayMessageRequest:FireServer("/e nx_ping", "All")
+            end
+        end)
+    end)
+
+    -- ============================================================
     -- HOME TAB
     -- ============================================================
     do
@@ -487,7 +529,7 @@ local function LoadNaxiumHub()
             fetchRank(p, function(rv, rn)
                 if not row or not row.Parent then return end
                 local isMe = (p == player)
-                local isNaxiumUser = false 
+                local isNaxiumUser = knownNaxiumUsers[p] == true 
                 local prefix = ""
                 
                 if isMe then prefix = "YOU  |  " elseif isNaxiumUser then prefix = "⭐ " end
@@ -645,6 +687,7 @@ local function LoadNaxiumHub()
         end)
         mkSlider(THT_L, "Image Opacity", 62, "bg_op", 0, 1, 0.3, "%.2f", function(v) bgImg.ImageTransparency = 1-v end)
 
+        -- Custom Image Input & Tooltip Helper
         local customImgBox = Instance.new("TextBox"); customImgBox.Size = UDim2.new(1, -45, 0, 26); customImgBox.Position = UDim2.new(0, 10, 0, 105); customImgBox.BackgroundColor3 = Color3.fromRGB(12, 16, 24); customImgBox.BackgroundTransparency = 0.2; customImgBox.BorderSizePixel = 0; customImgBox.PlaceholderText = "Paste Image ID here..."; customImgBox.Text = ""; customImgBox.Font = Enum.Font.GothamMedium; customImgBox.TextSize = 10; customImgBox.TextColor3 = C.White; customImgBox.PlaceholderColor3 = C.Gray; customImgBox.ClearTextOnFocus = false; customImgBox.Parent = THT_L; Instance.new("UICorner", customImgBox).CornerRadius = UDim.new(0, 5)
         local cpad2 = Instance.new("UIPadding"); cpad2.PaddingLeft = UDim.new(0, 8); cpad2.Parent = customImgBox; local cboxStr = Instance.new("UIStroke"); cboxStr.Thickness = 1; cboxStr.Transparency = 0.7; cboxStr.Parent = customImgBox; track(cboxStr, "Color", "Accent")
         customImgBox.FocusLost:Connect(function(enter) if enter then local id = customImgBox.Text:match("%d+"); if id then bgImg.Image = "rbxassetid://"..id; openBgBtn.Text = "Custom  v" else customImgBox.Text = "" end end end)
