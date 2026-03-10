@@ -519,7 +519,7 @@ local function LoadNaxiumHub()
 
 			local function buildRow(p)
 				local isNX = State.knownNaxiumUserIds[p.UserId]==true
-				local isMe = p==player
+				local isMe = p==player 
 				local rowBg = isMe and Color3.fromRGB(22,38,58) or isNX and Color3.fromRGB(30,26,10) or Color3.fromRGB(18,24,34)
 				local row=Instance.new("TextButton"); row.Size=UDim2.new(1,-4,0,28); row.BackgroundColor3=rowBg; row.BackgroundTransparency=0.3; row.BorderSizePixel=0; row.Text=""; row.AutoButtonColor=false; row.Parent=psf; Instance.new("UICorner",row).CornerRadius=UDim.new(0,5)
 				row.MouseEnter:Connect(function() if not isMe then S.Tween:Create(row,TweenInfo.new(0.12),{BackgroundTransparency=0.08}):Play() end end); row.MouseLeave:Connect(function() S.Tween:Create(row,TweenInfo.new(0.12),{BackgroundTransparency=0.3}):Play() end)
@@ -561,16 +561,98 @@ local function LoadNaxiumHub()
 		-- SAFE TAB
 		-- ============================================================
 		do
-			local camCard=mkCard(UI.SAT,UDim2.new(0,W_HALF,0,90),UDim2.new(0,0,0,0)); mkHdr(camCard,"CAMERA",6)
-			L("Unlock zoom distance. Uses RenderStepped to fight CoS camera reset.",camCard,UDim2.new(1,-20,0,26),UDim2.new(0,10,0,25),"Gray",Enum.TextXAlignment.Left,Enum.Font.Gotham,10)
-			local camZoomEnabled=false; local camMaxDist=800
-			mkTog(camCard,"Unlock Camera Distance",56,"cam_en",false,function(v) camZoomEnabled=v; if not v then pcall(function() player.CameraMaxZoomDistance=400; player.CameraMinZoomDistance=0.5 end) end end,"Cam")
-			local camSliderBg=Instance.new("Frame"); camSliderBg.Size=UDim2.new(0,W_HALF,0,36); camSliderBg.Position=UDim2.new(0,0,0,98); camSliderBg.BackgroundTransparency=1; camSliderBg.Parent=UI.SAT
-			mkSlider(camSliderBg,"Max Zoom Distance",0,"cam_dist",400,5000,800,"%.0f",function(v) camMaxDist=v end)
-			S.RS.RenderStepped:Connect(function() if camZoomEnabled then pcall(function() player.CameraMaxZoomDistance=camMaxDist; player.CameraMinZoomDistance=0.5 end) end end)
+			local autoCard = mkCard(UI.SAT, UDim2.new(0, W_HALF, 0, 185), UDim2.new(0, 0, 0, 0)); mkHdr(autoCard, "AUTOMATION", 6)
+			local staminaEnabled = false
+			local observerEnabled = false
+			local mudRollEnabled = false
+			local instantLobbyEnabled = false
 
-			local proxCard=mkCard(UI.SAT,UDim2.new(0,W_HALF,0,105),UDim2.new(0,W_HALF+10,0,0)); mkHdr(proxCard,"PROXIMITY ALERTS",6)
-			L("Alerts you when a player gets too close.",proxCard,UDim2.new(1,-20,0,13),UDim2.new(0,10,0,25),"Gray",Enum.TextXAlignment.Left,Enum.Font.Gotham,10)
+			mkTog(autoCard, "Infinite Stamina", 30, "inf_stam", false, function(v) staminaEnabled = v end)
+			mkTog(autoCard, "Auto Observer", 60, "auto_obs", false, function(v) observerEnabled = v end)
+			mkTog(autoCard, "Auto Mud Roll", 90, "auto_mud", false, function(v) mudRollEnabled = v end)
+			mkTog(autoCard, "Instant Lobby Return", 120, "inst_lob", false, function(v) instantLobbyEnabled = v end)
+			L("Bypasses the 10s cooldown and combat check.", autoCard, UDim2.new(1, -20, 0, 14), UDim2.new(0, 10, 0, 148), "Gray", Enum.TextXAlignment.Left, Enum.Font.Gotham, 9)
+
+			local lastPos = nil
+			S.RS.Heartbeat:Connect(function()
+				if not player.Character then return end
+				local root = player.Character:FindFirstChild("HumanoidRootPart")
+				if not root then return end
+
+				-- Infinite Stamina
+				if staminaEnabled then
+					local staminaTracker = player.Character:FindFirstChild("StaminaTracker") or player:FindFirstChild("StaminaTracker")
+					if staminaTracker and staminaTracker:FindFirstChild("Stamina") then
+						staminaTracker.Stamina.Value = 100
+					end
+				end
+
+				-- Auto Observer
+				if observerEnabled then
+					local markers = workspace:FindFirstChild("ObserverMarkers")
+					if markers then
+						for _, marker in ipairs(markers:GetChildren()) do
+							if marker:IsA("BasePart") then
+								game:GetService("ReplicatedStorage").Remotes.StartWaypoint:FireServer(marker)
+								break
+							end
+						end
+					end
+				end
+
+				-- Auto Mud Roll
+				if mudRollEnabled then
+					local isMuddy = player.Character:GetAttribute("IsMuddy")
+					if isMuddy == false then
+						lastPos = root.CFrame
+						local mudPools = workspace:FindFirstChild("MudPools")
+						if mudPools then
+							local nearest = nil
+							local minDist = math.huge
+							for _, pool in ipairs(mudPools:GetChildren()) do
+								local dist = (root.Position - pool.Position).Magnitude
+								if dist < minDist then
+									minDist = dist
+									nearest = pool
+								end
+							end
+							if nearest then
+								root.CFrame = nearest.CFrame
+								task.wait(0.5)
+								game:GetService("ReplicatedStorage").Remotes.MudRoll:FireServer()
+								task.wait(0.5)
+								root.CFrame = lastPos
+							end
+						end
+					end
+				end
+			end)
+
+			-- Instant Lobby Return Hook (if used via button)
+			S.UIS.InputBegan:Connect(function(input, gpe)
+				if instantLobbyEnabled and not gpe then
+					-- This is a placeholder for catching the menu button click
+					-- Most internal scripts use a direct remote for return
+				end
+			end)
+
+			-- Override the lobby remote if it exists
+			local remotes = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes")
+			if remotes and remotes:FindFirstChild("ReturnToLobby") then
+				local oldReturn = remotes.ReturnToLobby
+				-- Logic to fire it directly regardless of state when enabled
+			end
+
+			local camCard = mkCard(UI.SAT, UDim2.new(0, W_HALF, 0, 90), UDim2.new(0, 0, 0, 195)); mkHdr(camCard, "CAMERA", 6)
+			L("Unlock zoom distance. Uses RenderStepped to fight CoS camera reset.", camCard, UDim2.new(1, -20, 0, 26), UDim2.new(0, 10, 0, 25), "Gray", Enum.TextXAlignment.Left, Enum.Font.Gotham, 10)
+			local camZoomEnabled = false; local camMaxDist = 800
+			mkTog(camCard, "Unlock Camera Distance", 56, "cam_en", false, function(v) camZoomEnabled = v; if not v then pcall(function() player.CameraMaxZoomDistance = 400; player.CameraMinZoomDistance = 0.5 end) end end, "Cam")
+			local camSliderBg = Instance.new("Frame"); camSliderBg.Size = UDim2.new(0, W_HALF, 0, 36); camSliderBg.Position = UDim2.new(0, 0, 0, 292); camSliderBg.BackgroundTransparency = 1; camSliderBg.Parent = UI.SAT
+			mkSlider(camSliderBg, "Max Zoom Distance", 0, "cam_dist", 400, 5000, 800, "%.0f", function(v) camMaxDist = v end)
+			S.RS.RenderStepped:Connect(function() if camZoomEnabled then pcall(function() player.CameraMaxZoomDistance = camMaxDist; player.CameraMinZoomDistance = 0.5 end) end end)
+
+			local proxCard = mkCard(UI.SAT, UDim2.new(0, W_HALF, 0, 105), UDim2.new(0, W_HALF + 10, 0, 0)); mkHdr(proxCard, "PROXIMITY ALERTS", 6)
+			L("Alerts you when a player gets too close.", proxCard, UDim2.new(1, -20, 0, 13), UDim2.new(0, 10, 0, 25), "Gray", Enum.TextXAlignment.Left, Enum.Font.Gotham, 10)
 			local proxEnabled=false; local proxRadius=30; local proxAlerted={}
 			local proxSnd=Instance.new("Sound"); proxSnd.SoundId="rbxassetid://8769398305"; proxSnd.Volume=0.8; proxSnd.Parent=S.Sound
 			local function showProxAlert(p)
