@@ -87,6 +87,7 @@ local function LoadNaxiumHub()
 
     local State = {
         saveData={_G.NaxiumSave or {}}, ConfigElements={}, tListeners={}, TogSync={},
+        -- NX user detection: keyed by UserId (number) for stability
         knownNaxiumUserIds={},
         rankCache={},
         hDrg=false, hDrgSt=nil, hDrgPos=nil, hClickTime=0, hMoved=false,
@@ -97,12 +98,12 @@ local function LoadNaxiumHub()
 
     local UI = {}
 
-    -- ── MENU CONTROLLER ──
+    -- ── MENU CONTROLLER (hoisted so all sections can reference) ──
     local mfIsOpen  = false
     local miniIsOpen= false
     local openMainMenu, closeMainMenu, toggleMainMenu
     local openMiniUI,   closeMiniUI
-    local autoSaveConfig = nil
+    local autoSaveConfig = nil -- Set in Config section to auto-save properties seamlessly!
 
     openMainMenu = function()
         if mfIsOpen then return end; mfIsOpen=true
@@ -140,7 +141,7 @@ local function LoadNaxiumHub()
     
     local function sv(k,v) 
         pcall(function() State.saveData[k]=v end) 
-        if autoSaveConfig then task.spawn(autoSaveConfig) end
+        if autoSaveConfig then task.spawn(autoSaveConfig) end -- Force auto-save smoothly!
     end
     local function ld(k,def) local ok2,v=pcall(function() return State.saveData[k] end); return (ok2 and v~=nil) and v or def end
 
@@ -167,6 +168,7 @@ local function LoadNaxiumHub()
         return res
     end
 
+    -- Destroy old UI
     pcall(function()
         local tp; pcall(function() tp=gethui() end)
         if not tp then pcall(function() tp=game:GetService("CoreGui") end) end
@@ -177,6 +179,7 @@ local function LoadNaxiumHub()
         end
     end)
 
+    -- Theme
     local DefaultColors = {
         Bg=Color3.fromRGB(11,14,20), DkBg=Color3.fromRGB(7,9,13), Accent=Color3.fromRGB(85,160,215),
         White=Color3.fromRGB(212,218,228), Gray=Color3.fromRGB(118,128,144), Green=Color3.fromRGB(65,190,105),
@@ -194,6 +197,7 @@ local function LoadNaxiumHub()
 
     UI.gui=Instance.new("ScreenGui"); UI.gui.Name="NaxiumHub"; UI.gui.ResetOnSpawn=false; UI.gui.ZIndexBehavior=Enum.ZIndexBehavior.Sibling; UI.gui.IgnoreGuiInset=true; UI.gui.Parent=targetParent
 
+    -- ── Helpers ──────────────────────────────────────────────
     local function L(txt,par,sz,pos,col,ax,fnt,ts)
         local lb=Instance.new("TextLabel"); lb.Text=txt or ""; lb.Parent=par; lb.Size=sz or UDim2.new(1,0,0,18); lb.Position=pos or UDim2.new(0,0,0,0)
         lb.BackgroundTransparency=1; lb.TextXAlignment=ax or Enum.TextXAlignment.Left; lb.Font=fnt or Enum.Font.GothamMedium; lb.TextSize=ts or 11
@@ -283,6 +287,7 @@ local function LoadNaxiumHub()
         end)
     end
 
+    -- Theme config injection
     for k,defColor in pairs(DefaultColors) do
         table.insert(State.ConfigElements,{key="tc_"..k,default=defColor,update=function(v) if v then C[k]=v; applyTheme() end end})
     end
@@ -291,12 +296,9 @@ local function LoadNaxiumHub()
 
     -- ============================================================
     -- NX CHAT DETECTION
+    -- By starting the handshake with an emote ("/e wave"), the 
+    -- chat engine natively hides the text while executing it!
     -- ============================================================
-    local ID_PING = "\226\128\139\226\128\140"
-    local ID_PONG = "\226\128\140\226\128\139"
-    local PING_STR = "/e " .. ID_PING
-    local PONG_STR = "/e " .. ID_PONG
-
     local function markNaxiumUser(p)
         if not p or p==player then return end
         if State.knownNaxiumUserIds[p.UserId] then return end
@@ -306,55 +308,45 @@ local function LoadNaxiumHub()
 
     local function setupChatDetection(p)
         p.Chatted:Connect(function(msg)
-            if string.find(msg, ID_PING) or string.find(msg, ID_PONG) or string.find(msg, "nx_ping") or string.find(msg, "nx_pong") then
+            if string.find(msg, "nx_ping") or string.find(msg, "nx_pong") then
                 markNaxiumUser(p)
-                if (string.find(msg, ID_PING) or string.find(msg, "nx_ping")) and p~=player then
+                if string.find(msg, "nx_ping") and p~=player then
                     task.wait(math.random(1,3)*0.1)
                     pcall(function()
                         if S.TCS.ChatVersion==Enum.ChatVersion.TextChatService then
-                            S.TCS.TextChannels.RBXGeneral:SendAsync(PONG_STR)
+                            S.TCS.TextChannels.RBXGeneral:SendAsync("/e wave nx_pong")
                         else
-                            game:GetService("ReplicatedStorage").DefaultChatSystemChatEvents.SayMessageRequest:FireServer(PONG_STR,"All")
+                            game:GetService("ReplicatedStorage").DefaultChatSystemChatEvents.SayMessageRequest:FireServer("/e wave nx_pong","All")
                         end
                     end)
                 end
             end
         end)
     end
+
     pcall(function()
         if S.TCS.ChatVersion == Enum.ChatVersion.TextChatService then
             S.TCS.MessageReceived:Connect(function(msg)
-                if msg and msg.Text and (string.find(msg.Text, ID_PING) or string.find(msg.Text, ID_PONG) or string.find(msg.Text, "nx_ping") or string.find(msg.Text, "nx_pong")) then
+                if msg and msg.Text and (string.find(msg.Text, "nx_ping") or string.find(msg.Text, "nx_pong")) then
                     if msg.TextSource then
                         local p = S.Players:GetPlayerByUserId(msg.TextSource.UserId)
                         if p then markNaxiumUser(p) end
                     end
                 end
             end)
-            
-            -- Prevent any "Invalid emote" local system messages from displaying in the user's chat box
-            local oldOnIncoming = S.TCS.OnIncomingMessage
-            S.TCS.OnIncomingMessage = function(msg)
-                if msg.Text and (string.find(msg.Text, ID_PING) or string.find(msg.Text, ID_PONG) or string.find(msg.Text, "nx_ping") or string.find(msg.Text, "nx_pong")) then
-                    local props = Instance.new("TextChatMessageProperties")
-                    props.Text = ""
-                    props.PrefixText = ""
-                    return props
-                end
-                if oldOnIncoming then return oldOnIncoming(msg) end
-            end
         end
     end)
 
     for _,p in ipairs(S.Players:GetPlayers()) do setupChatDetection(p) end
     S.Players.PlayerAdded:Connect(setupChatDetection)
+    
     task.spawn(function()
         task.wait(3)
         pcall(function()
             if S.TCS.ChatVersion==Enum.ChatVersion.TextChatService then
-                S.TCS.TextChannels.RBXGeneral:SendAsync(PING_STR)
+                S.TCS.TextChannels.RBXGeneral:SendAsync("/e wave nx_ping")
             else
-                game:GetService("ReplicatedStorage").DefaultChatSystemChatEvents.SayMessageRequest:FireServer(PING_STR,"All")
+                game:GetService("ReplicatedStorage").DefaultChatSystemChatEvents.SayMessageRequest:FireServer("/e wave nx_ping","All")
             end
         end)
     end)
@@ -725,10 +717,14 @@ local function LoadNaxiumHub()
                         d.hl.FillColor=esp.glowColor; d.hl.OutlineColor=esp.glowColor
                         local nt=""; if esp.showDisplay and esp.showUser then nt=p.DisplayName.." (@"..p.Name..")" elseif esp.showDisplay then nt=p.DisplayName elseif esp.showUser then nt="@"..p.Name end
                         
-                        -- Add Star to ESP
-                        if State.knownNaxiumUserIds[p.UserId] then nt = "⭐ " .. nt end
+                        if State.knownNaxiumUserIds[p.UserId] then 
+                            nt = "⭐ " .. nt 
+                            d.nl.TextColor3 = C.Yellow
+                        else
+                            d.nl.TextColor3 = Color3.new(1,1,1)
+                        end
                         
-                        d.nl.Text=nt; d.nl.TextColor3=Color3.new(1,1,1); d.nl.TextSize=esp.textSize; d.dl.TextSize=math.max(8,esp.textSize-2)
+                        d.nl.Text=nt; d.nl.TextSize=esp.textSize; d.dl.TextSize=math.max(8,esp.textSize-2)
                         d.dl.Visible=esp.showDist; if esp.showDist then d.dl.Text=dist.."m" end
                     else removeESP(p) end
                 end
@@ -928,7 +924,7 @@ local function LoadNaxiumHub()
             L("Export Config",box,UDim2.new(1,-40,0,20),UDim2.new(0,16,0,12),"White",Enum.TextXAlignment.Left,Enum.Font.GothamBold,14)
             L("Copy the string below and share it — paste it into Naxium's Import field to apply.",box,UDim2.new(1,-32,0,26),UDim2.new(0,16,0,34),"Gray",Enum.TextXAlignment.Left,Enum.Font.GothamMedium,10).TextWrapped=true
             local scrollF=Instance.new("Frame"); scrollF.Size=UDim2.new(1,-32,0,76); scrollF.Position=UDim2.new(0,16,0,70); scrollF.BackgroundColor3=Color3.fromRGB(7,10,16); scrollF.BackgroundTransparency=0.1; scrollF.BorderSizePixel=0; scrollF.ZIndex=502; scrollF.Parent=box; Instance.new("UICorner",scrollF).CornerRadius=UDim.new(0,6)
-            local sStr=Instance.new("UIStroke"); sStr.Thickness=1; sStr.Transparency=0.72; sStr.ZIndex=502; sStr.Parent=scrollF; track(sStr,"Color","Accent")
+            local sStr=Instance.new("UIStroke"); sStr.Thickness=1.5; sStr.Transparency=0.72; sStr.ZIndex=502; sStr.Parent=scrollF; track(sStr,"Color","Accent")
             local tb=Instance.new("TextBox"); tb.Size=UDim2.new(1,-12,1,-8); tb.Position=UDim2.new(0,6,0,4); tb.BackgroundTransparency=1; tb.Text=json; tb.Font=Enum.Font.RobotoMono; tb.TextSize=9; tb.TextColor3=C.Accent; tb.TextXAlignment=Enum.TextXAlignment.Left; tb.TextYAlignment=Enum.TextYAlignment.Top; tb.TextWrapped=true; tb.MultiLine=true; tb.ClearTextOnFocus=false; tb.ZIndex=503; tb.Parent=scrollF; track(tb,"TextColor3","Accent")
             local copyBtn=Instance.new("TextButton"); copyBtn.Size=UDim2.new(0.5,-10,0,30); copyBtn.Position=UDim2.new(0,16,0,158); copyBtn.BackgroundColor3=C.Accent; copyBtn.BackgroundTransparency=0.1; copyBtn.BorderSizePixel=0; copyBtn.Text="Copy to Clipboard"; copyBtn.Font=Enum.Font.GothamBold; copyBtn.TextSize=11; copyBtn.TextColor3=Color3.new(1,1,1); copyBtn.ZIndex=502; copyBtn.Parent=box; Instance.new("UICorner",copyBtn).CornerRadius=UDim.new(0,6); track(copyBtn,"BackgroundColor3","Accent")
             copyBtn.MouseButton1Click:Connect(function() pcall(function() setclipboard(json) end); copyBtn.Text="Copied!"; copyBtn.BackgroundColor3=C.Green; task.delay(1.5,function() copyBtn.Text="Copy to Clipboard"; track(copyBtn,"BackgroundColor3","Accent") end) end)
@@ -961,7 +957,6 @@ local function LoadNaxiumHub()
                 end
             end
             
-            -- Manual Paste Fallback Modal
             local modal=Instance.new("Frame"); modal.Size=UDim2.new(1,0,1,0); modal.BackgroundColor3=Color3.new(0,0,0); modal.BackgroundTransparency=0.45; modal.ZIndex=500; modal.Parent=UI.mf; modal.Active=true
             local box=Instance.new("Frame"); box.Size=UDim2.new(0,460,0,200); box.Position=UDim2.new(0.5,0,0.5,0); box.AnchorPoint=Vector2.new(0.5,0.5); box.BackgroundColor3=C.DkBg; box.BorderSizePixel=0; box.ZIndex=501; box.Parent=modal; track(box,"BackgroundColor3","DkBg"); Instance.new("UICorner",box).CornerRadius=UDim.new(0,10)
             local bStr=Instance.new("UIStroke"); bStr.Thickness=1.5; bStr.Transparency=0.35; bStr.ZIndex=501; bStr.Parent=box; track(bStr,"Color","Accent")
@@ -1084,7 +1079,7 @@ local function LoadNaxiumHub()
     end
 
     -- ============================================================
-    -- SETTINGS TAB  (removed "Hide Other Players")
+    -- SETTINGS TAB
     -- ============================================================
     do
         local perfCard=mkCard(UI.SET,UDim2.new(0,W_HALF,0,258),UDim2.new(0,0,0,0)); mkHdr(perfCard,"PERFORMANCE & HUD",6)
@@ -1154,7 +1149,6 @@ local function LoadNaxiumHub()
         local rejBtn=Instance.new("TextButton"); rejBtn.Size=UDim2.new(0.5,-15,0,20); rejBtn.Position=UDim2.new(0.5,5,0,24); rejBtn.BackgroundColor3=C.Tab; rejBtn.BorderSizePixel=0; rejBtn.Text="Rejoin Server"; rejBtn.Font=Enum.Font.GothamBold; rejBtn.TextSize=10; rejBtn.TextColor3=C.White; rejBtn.Parent=srvCard; Instance.new("UICorner",rejBtn).CornerRadius=UDim.new(0,4); track(rejBtn,"BackgroundColor3","Tab")
         rejBtn.MouseButton1Click:Connect(function() rejBtn.Text="Rejoining..."; game:GetService("TeleportService"):TeleportToPlaceInstance(game.PlaceId,game.JobId,player) end)
 
-        -- ── Keybind handler ─────────────────────────────────────
         S.UIS.InputBegan:Connect(function(i,gp)
             if not gp and i.UserInputType==Enum.UserInputType.Keyboard then
                 if listening then hideKey=i.KeyCode.Name; sv("hideMenuKey",hideKey); keyLbl2.Text="Key: "..tostring(hideKey); skBtn.Text="Set Key"; listening=false
@@ -1165,67 +1159,6 @@ local function LoadNaxiumHub()
                 end
             end
         end)
-        S.Players.PlayerAdded:Connect(function(p) task.wait(2); checkStaffLogic(p) end)
-        S.Players.PlayerRemoving:Connect(function(p) notifiedStaff[p]=nil end)
-    end
-
-    -- ============================================================
-    -- BOTTOM BAR
-    -- ============================================================
-    do
-        local bbLine = Instance.new("Frame"); bbLine.Size = UDim2.new(1, -20, 0, 1); bbLine.Position = UDim2.new(0, 10, 0, 385); bbLine.BackgroundColor3 = C.Accent; bbLine.BackgroundTransparency = 0.5; bbLine.BorderSizePixel = 0; bbLine.Parent = UI.mf; track(bbLine, "BackgroundColor3", "Accent")
-        
-        local bb2=Instance.new("Frame"); bb2.Size=UDim2.new(1,-20,0,42); bb2.Position=UDim2.new(0,10,0,388); bb2.BackgroundColor3=C.DkBg; bb2.BackgroundTransparency=0.12; bb2.BorderSizePixel=0; bb2.Parent=UI.mf; track(bb2,"BackgroundColor3","DkBg"); Instance.new("UICorner",bb2).CornerRadius=UDim.new(0,7)
-        L("Game Status  |  CoS v2.5.1  [OK]",bb2,UDim2.new(0.33,0,1,0),UDim2.new(0,10,0,0),"Gray",Enum.TextXAlignment.Left,Enum.Font.GothamMedium,10)
-
-        local function buildAccText()
-            local subColor="#41bb6a"
-            local expStr=""
-            if _G.NaxiumExpiry then
-                local tl=_G.NaxiumExpiry-os.time()
-                if tl>315360000 then expStr='<font color="#9b7fe8">∞ Lifetime</font>'
-                elseif tl>0 then
-                    local d=math.floor(tl/86400)
-                    if d>30 then expStr='<font color="#41bb6a">'..d..'d left</font>'
-                    elseif d>7 then expStr='<font color="#fcc03e">'..d..'d left</font>'
-                    elseif d>0 then expStr='<font color="#d24141">'..d..'d left</font>'
-                    else local h=math.floor((tl%86400)/3600); expStr='<font color="#d24141">'..h..'h left</font>' end
-                else subColor="#d24141"; expStr='<font color="#d24141">Expired</font>' end
-            end
-            return '<font color="#c8d0dc">Naxium</font>\n<font color="'..subColor..'">Active</font>\n'..expStr
-        end
-
-        local accLbl2=Instance.new("TextLabel"); accLbl2.Size=UDim2.new(0.34,0,1,0); accLbl2.Position=UDim2.new(0.33,0,0,0); accLbl2.BackgroundTransparency=1; accLbl2.RichText=true; accLbl2.Font=Enum.Font.GothamBold; accLbl2.TextSize=10; accLbl2.TextXAlignment=Enum.TextXAlignment.Center; accLbl2.TextYAlignment=Enum.TextYAlignment.Center; accLbl2.Parent=bb2
-        accLbl2.Text=buildAccText()
-
-        local psF2=Instance.new("Frame"); psF2.Size=UDim2.new(0.33,0,1,0); psF2.Position=UDim2.new(0.66,0,0,0); psF2.BackgroundTransparency=1; psF2.Parent=bb2
-        local pLL=Instance.new("UIListLayout"); pLL.SortOrder=Enum.SortOrder.LayoutOrder; pLL.VerticalAlignment=Enum.VerticalAlignment.Center; pLL.Padding=UDim.new(0,2); pLL.Parent=psF2
-        local function addBotRow(text,order) local fr=Instance.new("Frame"); fr.Size=UDim2.new(1,-10,0,12); fr.BackgroundTransparency=1; fr.LayoutOrder=order; fr.Parent=psF2; local ll=Instance.new("UIListLayout"); ll.FillDirection=Enum.FillDirection.Horizontal; ll.HorizontalAlignment=Enum.HorizontalAlignment.Right; ll.VerticalAlignment=Enum.VerticalAlignment.Center; ll.Padding=UDim.new(0,6); ll.Parent=fr; local lbl=Instance.new("TextLabel"); lbl.BackgroundTransparency=1; lbl.TextColor3=C.Gray; lbl.Font=Enum.Font.GothamMedium; lbl.TextSize=10; lbl.Text=text; lbl.Size=UDim2.new(0,0,1,0); lbl.AutomaticSize=Enum.AutomaticSize.X; lbl.LayoutOrder=2; lbl.Parent=fr; local dt=Instance.new("Frame"); dt.Size=UDim2.new(0,5,0,5); dt.BackgroundColor3=C.Green; dt.BorderSizePixel=0; dt.LayoutOrder=1; dt.Parent=fr; Instance.new("UICorner",dt).CornerRadius=UDim.new(1,0); return lbl end
-        local naxL2=addBotRow("0 Naxium Users Online",1); local srvL2=addBotRow("0 Players in Server",2)
-        local function updNx2() naxL2.Text=(_G.NaxiumOnlineUsers or "1").." Naxium Users Online"; srvL2.Text=tostring(#S.Players:GetPlayers()).." Players in Server" end
-        S.Players.PlayerAdded:Connect(updNx2); S.Players.PlayerRemoving:Connect(updNx2); updNx2()
-    end
-
-    -- ============================================================
-    -- MINI UI PANEL
-    -- ============================================================
-    do
-        miniUI=Instance.new("Frame"); miniUI.Name="MiniUI"; miniUI.Size=UDim2.new(0,240,0,310); miniUI.Position=UDim2.new(0.8,0,0.5,0); miniUI.AnchorPoint=Vector2.new(0.5,0.5); miniUI.BackgroundColor3=C.Bg; miniUI.BackgroundTransparency=0.06; miniUI.BorderSizePixel=0; miniUI.Visible=false; miniUI.ClipsDescendants=true; miniUI.Parent=UI.gui; track(miniUI,"BackgroundColor3","Bg"); Instance.new("UICorner",miniUI).CornerRadius=UDim.new(0,8)
-        local mStr=Instance.new("UIStroke"); mStr.Thickness=1.5; mStr.Transparency=0.5; mStr.Parent=miniUI; track(mStr,"Color","Accent")
-        local mTop=Instance.new("Frame"); mTop.Size=UDim2.new(1,0,0,32); mTop.BackgroundTransparency=1; mTop.Active=true; mTop.ZIndex=10; mTop.Parent=miniUI; local mLogo=Instance.new("ImageLabel"); mLogo.Size=UDim2.new(0,14,0,14); mLogo.Position=UDim2.new(0,12,0.5,0); mLogo.AnchorPoint=Vector2.new(0,0.5); mLogo.BackgroundTransparency=1; mLogo.Image="rbxassetid://75254466518091"; mLogo.Parent=mTop; L("Naxium Mini",mTop,UDim2.new(1,-50,1,0),UDim2.new(0,30,0,0),"White",Enum.TextXAlignment.Left,Enum.Font.GothamBold,11)
-        local mClose=Instance.new("TextButton"); mClose.Size=UDim2.new(0,26,0,26); mClose.Position=UDim2.new(1,-6,0.5,0); mClose.AnchorPoint=Vector2.new(1,0.5); mClose.BackgroundTransparency=1; mClose.Text="X"; mClose.Font=Enum.Font.GothamBold; mClose.TextSize=13; mClose.TextColor3=C.Gray; mClose.Parent=mTop; mClose.MouseEnter:Connect(function() mClose.TextColor3=Color3.fromRGB(235,75,75) end); mClose.MouseLeave:Connect(function() mClose.TextColor3=C.Gray end)
-        mClose.MouseButton1Click:Connect(function() closeMiniUI() end)
-        mTop.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 then State.drg=true; State.drgSt=i.Position; State.drgPos=miniUI.Position; i.Changed:Connect(function() if i.UserInputState==Enum.UserInputState.End then State.drg=false end end) end end)
-        mTop.InputChanged:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseMovement then State.drgInp=i end end)
-        S.UIS.InputChanged:Connect(function(i) if i==State.drgInp and State.drg then local d=i.Position-State.drgSt; miniUI.Position=UDim2.new(State.drgPos.X.Scale,State.drgPos.X.Offset+d.X,State.drgPos.Y.Scale,State.drgPos.Y.Offset+d.Y) end end)
-        local mCont=Instance.new("Frame"); mCont.Size=UDim2.new(1,-16,1,-42); mCont.Position=UDim2.new(0,8,0,34); mCont.BackgroundColor3=C.DkBg; mCont.BackgroundTransparency=0.14; mCont.BorderSizePixel=0; mCont.Parent=miniUI; track(mCont,"BackgroundColor3","DkBg"); Instance.new("UICorner",mCont).CornerRadius=UDim.new(0,6)
-        local mScroll=Instance.new("ScrollingFrame"); mScroll.Size=UDim2.new(1,0,1,0); mScroll.BackgroundTransparency=1; mScroll.BorderSizePixel=0; mScroll.ScrollBarThickness=2; mScroll.CanvasSize=UDim2.new(0,0,0,0); mScroll.AutomaticCanvasSize=Enum.AutomaticSize.Y; mScroll.ScrollBarImageColor3=C.Accent; mScroll.Parent=mCont
-        local mPad=Instance.new("UIPadding"); mPad.PaddingLeft=UDim.new(0,6); mPad.PaddingRight=UDim.new(0,6); mPad.PaddingTop=UDim.new(0,6); mPad.PaddingBottom=UDim.new(0,6); mPad.Parent=mScroll
-        Instance.new("UIListLayout",mScroll).Padding=UDim.new(0,5)
-        local function mkMiniHdr(txt) local h=Instance.new("Frame"); h.Size=UDim2.new(1,0,0,20); h.BackgroundTransparency=1; h.Parent=mScroll; L(txt,h,UDim2.new(1,-4,1,0),UDim2.new(0,4,0,0),"Accent",Enum.TextXAlignment.Left,Enum.Font.GothamBold,10); local d=Instance.new("Frame"); d.Size=UDim2.new(1,-8,0,1); d.Position=UDim2.new(0,4,1,-2); d.BackgroundColor3=C.Accent; d.BackgroundTransparency=0.72; d.BorderSizePixel=0; d.Parent=h; track(d,"BackgroundColor3","Accent") end
-        mkMiniHdr("VISUALS"); mkTog(mScroll,"Enable ESP",0,"esp_en",false,nil,"ESP"); mkTog(mScroll,"Player Glow",0,"esp_glw",true,nil,"Glow")
-        mkMiniHdr("SAFE"); mkTog(mScroll,"Proximity Alerts",0,"prox_en",false,nil,"Prox"); mkTog(mScroll,"Unlock Camera",0,"cam_en",false,nil,"Cam")
-        miniBtn.MouseButton1Click:Connect(function() if miniIsOpen then closeMiniUI() else openMiniUI() end end)
     end
 
     -- ============================================================
