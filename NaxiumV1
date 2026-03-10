@@ -308,7 +308,7 @@ local function LoadNaxiumHub()
     UI.topHud.Visible = showHud
     UI.topHud.Parent = UI.gui
     track(UI.topHud,"BackgroundColor3","DkBg")
-    Instance.new("UICorner",UI.topHud).CornerRadius = UDim.new(0,10)
+    Instance.new("UICorner",UI.topHud).CornerRadius = UDim.new(0,5)
     local hudStroke = Instance.new("UIStroke"); hudStroke.Thickness=1; hudStroke.Transparency=0.6; hudStroke.Parent=UI.topHud; track(hudStroke,"Color","Accent")
 
     -- FPS label (left side)
@@ -440,7 +440,15 @@ local function LoadNaxiumHub()
         local btnNo=Instance.new("TextButton"); btnNo.Size=UDim2.new(0,110,0,30); btnNo.Position=UDim2.new(0,30,0,94); btnNo.BackgroundColor3=C.Card; btnNo.BorderSizePixel=0; btnNo.Text="Cancel"; btnNo.TextColor3=C.White; btnNo.Font=Enum.Font.GothamBold; btnNo.TextSize=12; btnNo.ZIndex=1002; btnNo.Parent=dBox; Instance.new("UICorner",btnNo).CornerRadius=UDim.new(0,6); track(btnNo,"BackgroundColor3","Card")
         local btnYes=Instance.new("TextButton"); btnYes.Size=UDim2.new(0,110,0,30); btnYes.Position=UDim2.new(1,-140,0,94); btnYes.BackgroundColor3=C.Red; btnYes.BorderSizePixel=0; btnYes.Text="Destroy Hub"; btnYes.TextColor3=Color3.new(1,1,1); btnYes.Font=Enum.Font.GothamBold; btnYes.TextSize=12; btnYes.ZIndex=1002; btnYes.Parent=dBox; Instance.new("UICorner",btnYes).CornerRadius=UDim.new(0,6)
         btnNo.MouseButton1Click:Connect(function() modalBg:Destroy() end)
-        btnYes.MouseButton1Click:Connect(function() pcall(function() settings().Rendering.QualityLevel=Enum.QualityLevel.Automatic end); S.Lighting.GlobalShadows=true; UI.gui:Destroy() end)
+        btnYes.MouseButton1Click:Connect(function()
+            pcall(function() settings().Rendering.QualityLevel=Enum.QualityLevel.Automatic end); S.Lighting.GlobalShadows=true
+            -- Play close sound
+            pcall(function()
+                local snd=Instance.new("Sound"); snd.SoundId="rbxassetid://114792211748678"; snd.Volume=0.9; snd.Parent=S.Sound; snd:Play()
+                task.delay(3,function() pcall(function() snd:Destroy() end) end)
+            end)
+            task.wait(0.05); UI.gui:Destroy()
+        end)
     end
     UI.cBtn=Instance.new("TextButton"); UI.cBtn.Size=UDim2.new(0,26,0,26); UI.cBtn.Position=UDim2.new(1,-26,0.5,0); UI.cBtn.AnchorPoint=Vector2.new(0,0.5); UI.cBtn.BackgroundTransparency=1; UI.cBtn.Text="X"; UI.cBtn.Font=Enum.Font.GothamBold; UI.cBtn.TextSize=13; UI.cBtn.TextColor3=C.Gray; UI.cBtn.Parent=UI.topBar
     UI.cBtn.MouseEnter:Connect(function() UI.cBtn.TextColor3=Color3.fromRGB(235,75,75) end); UI.cBtn.MouseLeave:Connect(function() UI.cBtn.TextColor3=C.Gray end); UI.cBtn.MouseButton1Click:Connect(showCloseConfirm)
@@ -484,7 +492,7 @@ local function LoadNaxiumHub()
     UI.HT=tFrames[1]; UI.SAT=tFrames[2]; UI.VT=tFrames[3]; UI.THT=tFrames[4]; UI.CFG=tFrames[5]; UI.SET=tFrames[6]
 
     local W_HALF=375; local W_L3=245; local W_M3=245; local W_R3=250
-    local fetchRank=function(p,cb) task.spawn(function() local ok1,rv=pcall(function() return p:GetRankInGroup(2919215) end); local ok2,rn=pcall(function() return p:GetRoleInGroup(2919215) end); local r=ok1 and rv or 0; local n=(ok2 and rn and r>0) and rn or "N/A"; State.rankCache[p.UserId]={rank=r,name=n}; pcall(cb,r,n) end) end
+    local fetchRank=function(p,cb) task.spawn(function() local ok1,rv=pcall(function() return p:GetRankInGroup(2919215) end); local ok2,rn=pcall(function() return p:GetRoleInGroup(2919215) end); local r=ok1 and rv or 0; local n=(ok2 and rn and r>0) and rn or "Not in group"; State.rankCache[p.UserId]={rank=r,name=n}; pcall(cb,r,n) end) end
 
     -- ============================================================
     -- HOME TAB
@@ -500,10 +508,10 @@ local function LoadNaxiumHub()
 
         local cc=mkCard(UI.HT,UDim2.new(0,W_L3,0,90),UDim2.new(0,0,0,95)); mkHdr(cc,"CREDITS",6)
         L("Nax  /  @Pweck_.",cc,UDim2.new(1,-20,0,14),UDim2.new(0,9,0,25),"White",Enum.TextXAlignment.Left,Enum.Font.GothamBold,11); L("Lead Dev & UI",cc,UDim2.new(1,-20,0,14),UDim2.new(0,9,0,40),"Gray",Enum.TextXAlignment.Left,Enum.Font.GothamMedium,10)
-        L("Exodius  /  @ex0dius.",cc,UDim2.new(1,-20,0,14),UDim2.new(0,9,0,60),"White",Enum.TextXAlignment.Left,Enum.Font.GothamBold,11); L("Creative Vision",cc,UDim2.new(1,-20,0,14),UDim2.new(0,9,0,75),"Gray",Enum.TextXAlignment.Left,Enum.Font.GothamMedium,10)
+        L("Exodius  /  @ex0dius.",cc,UDim2.new(1,-20,0,14),UDim2.new(0,9,0,60),"White",Enum.TextXAlignment.Left,Enum.Font.GothamBold,11); L("Creative Director",cc,UDim2.new(1,-20,0,14),UDim2.new(0,9,0,75),"Gray",Enum.TextXAlignment.Left,Enum.Font.GothamMedium,10)
 
-        local ch=mkCard(UI.HT,UDim2.new(0,W_L3,0,95),UDim2.new(0,0,0,195)); mkHdr(ch,"CHANGELOG v1.5.0",6)
-        for i,e in ipairs({{C.Green,"+","Clean HUD + bigger logo"},{C.Green,"+","NX user detection fix (UserId)"},{C.Green,"+","Config: duplicate, share, notes"}}) do
+        local ch=mkCard(UI.HT,UDim2.new(0,W_L3,0,95),UDim2.new(0,0,0,195)); mkHdr(ch,"CHANGELOG v1.6.0",6)
+        for i,e in ipairs({{C.Green,"+","ESP preview with layered glow auras"},{C.Green,"+","HUD pill, tooltip, sounds"},{C.Green,"+","Profile outline on player select"}}) do
             local row=Instance.new("Frame"); row.Size=UDim2.new(1,-12,0,14); row.Position=UDim2.new(0,6,0,25+(i-1)*20); row.BackgroundTransparency=1; row.Parent=ch
             local tg=L(e[2],row,UDim2.new(0,10,1,0),UDim2.new(0,0,0,0),"Gray",Enum.TextXAlignment.Left,Enum.Font.GothamBold,11); tg.TextColor3=e[1]; L(e[3],row,UDim2.new(1,-12,1,0),UDim2.new(0,14,0,0),"Gray",Enum.TextXAlignment.Left,Enum.Font.Gotham,10).TextWrapped=true
         end
@@ -533,6 +541,7 @@ local function LoadNaxiumHub()
             local sv_l=L("--",profCard,UDim2.new(1,-130,0,16),UDim2.new(0,115,0,PY),"White",Enum.TextXAlignment.Right,Enum.Font.GothamMedium,11)
             profileLabels[stat.k]=sv_l; PY=PY+25
         end
+        local profCardStroke=profCard:FindFirstChildOfClass("UIStroke")
         local function loadProf(tgt,isOther)
             profAv.Image=""; task.spawn(function() local ok2,img=pcall(function() return S.Players:GetUserThumbnailAsync(tgt.UserId,Enum.ThumbnailType.HeadShot,Enum.ThumbnailSize.Size100x100) end); if ok2 then profAv.Image=img end end)
             pDN.Text=tgt.DisplayName; pUN.Text="@"..tgt.Name; pDN.TextColor3=isOther and C.White or C.Accent
@@ -545,6 +554,10 @@ local function LoadNaxiumHub()
                 if profileLabels["grl"] then profileLabels["grl"].Text=rv>0 and rn or "None"; profileLabels["grl"].TextColor3=rv>0 and C.Green or C.White end
             end)
             backBtn.Visible=isOther
+            -- Keep outline visible while viewing another player, hide for self
+            if profCardStroke then
+                S.Tween:Create(profCardStroke,TweenInfo.new(0.2),{Transparency=isOther and 0.15 or 0.82}):Play()
+            end
         end
         loadProf(player,false); backBtn.MouseButton1Click:Connect(function() loadProf(player,false) end)
 
@@ -559,7 +572,7 @@ local function LoadNaxiumHub()
                 local nxStripe=Instance.new("Frame"); nxStripe.Size=UDim2.new(0,3,0.7,0); nxStripe.Position=UDim2.new(0,0,0.15,0); nxStripe.BackgroundColor3=C.Yellow; nxStripe.BorderSizePixel=0; nxStripe.Parent=row; Instance.new("UICorner",nxStripe).CornerRadius=UDim.new(1,0); track(nxStripe,"BackgroundColor3","Yellow")
             end
             row.MouseEnter:Connect(function() if not isMe then S.Tween:Create(row,TweenInfo.new(0.12),{BackgroundTransparency=0.08}):Play() end end); row.MouseLeave:Connect(function() S.Tween:Create(row,TweenInfo.new(0.12),{BackgroundTransparency=0.3}):Play() end)
-            row.MouseButton1Click:Connect(function() loadProf(p,not isMe); local sk=profCard:FindFirstChildOfClass("UIStroke"); if sk then S.Tween:Create(sk,TweenInfo.new(0.12),{Transparency=0}):Play(); task.delay(0.3,function() S.Tween:Create(sk,TweenInfo.new(0.4),{Transparency=0.82}):Play() end) end end)
+            row.MouseButton1Click:Connect(function() loadProf(p,not isMe) end)
             local av=Instance.new("ImageLabel"); av.Size=UDim2.new(0,20,0,20); av.Position=UDim2.new(0,6,0.5,0); av.AnchorPoint=Vector2.new(0,0.5); av.BackgroundColor3=C.Bg; av.BorderSizePixel=0; av.Parent=row; Instance.new("UICorner",av).CornerRadius=UDim.new(1,0)
             task.spawn(function() local ok2,img=pcall(function() return S.Players:GetUserThumbnailAsync(p.UserId,Enum.ThumbnailType.HeadShot,Enum.ThumbnailSize.Size48x48) end); if ok2 then av.Image=img end end)
             -- Name label
@@ -572,8 +585,8 @@ local function LoadNaxiumHub()
             fetchRank(p,function(rv,rn)
                 if not row or not row.Parent then return end
                 if isMe then rl.Text="YOU"; rl.TextColor3=C.Accent
-                elseif isNX then rl.Text="[NX] "..rn; rl.TextColor3=C.Yellow
-                else rl.Text=rn; rl.TextColor3=rv>0 and C.White or C.Gray end
+                elseif isNX then rl.Text="[NX] "..(rv>0 and rn or ""); rl.TextColor3=C.Yellow
+                else rl.Text=rv>0 and rn or "Not in group"; rl.TextColor3=rv>0 and C.White or C.Gray end
             end)
         end
 
@@ -647,34 +660,49 @@ local function LoadNaxiumHub()
 
         local gH,gS,gV=Color3.toHSV(esp.glowColor)
 
-        -- ESP Preview card (right side, below color)
+        -- ESP Preview card (right side, below color) - simulates real ESP highlight look
         local prevCard=mkCard(UI.VT,UDim2.new(0,W_HALF,0,158),UDim2.new(0,W_HALF+10,0,155)); mkHdr(prevCard,"ESP PREVIEW",6)
-        -- Dark scene background
-        local prevScene=Instance.new("Frame"); prevScene.Size=UDim2.new(1,-16,0,118); prevScene.Position=UDim2.new(0,8,0,28); prevScene.BackgroundColor3=Color3.fromRGB(14,22,18); prevScene.BorderSizePixel=0; prevScene.ClipsDescendants=true; prevScene.Parent=prevCard; Instance.new("UICorner",prevScene).CornerRadius=UDim.new(0,6)
-        -- Ground plane illusion
-        local prevGround=Instance.new("Frame"); prevGround.Size=UDim2.new(1,0,0.3,0); prevGround.Position=UDim2.new(0,0,0.7,0); prevGround.BackgroundColor3=Color3.fromRGB(20,32,24); prevGround.BorderSizePixel=0; prevGround.Parent=prevScene
-        -- Player silhouette (highlight simulation)
-        local prevHl=Instance.new("Frame"); prevHl.Size=UDim2.new(0,46,0,78); prevHl.Position=UDim2.new(0.5,0,0.5,-6); prevHl.AnchorPoint=Vector2.new(0.5,0.5); prevHl.BackgroundColor3=esp.glowColor; prevHl.BackgroundTransparency=0.6; prevHl.BorderSizePixel=0; prevHl.ZIndex=2; prevHl.Parent=prevScene; Instance.new("UICorner",prevHl).CornerRadius=UDim.new(0,5)
-        local prevHlStroke=Instance.new("UIStroke"); prevHlStroke.Color=esp.glowColor; prevHlStroke.Thickness=2; prevHlStroke.Transparency=0.05; prevHlStroke.Parent=prevHl
-        -- Avatar image inside highlight
-        local prevAv=Instance.new("ImageLabel"); prevAv.Size=UDim2.new(1,-4,1,-4); prevAv.Position=UDim2.new(0,2,0,2); prevAv.BackgroundTransparency=1; prevAv.ScaleType=Enum.ScaleType.Crop; prevAv.ZIndex=3; prevAv.Parent=prevHl
-        -- Name label above
-        local prevNameLbl=Instance.new("TextLabel"); prevNameLbl.Size=UDim2.new(1,-8,0,16); prevNameLbl.Position=UDim2.new(0.5,0,0,5); prevNameLbl.AnchorPoint=Vector2.new(0.5,0); prevNameLbl.BackgroundTransparency=1; prevNameLbl.Text="PlayerName"; prevNameLbl.TextColor3=Color3.new(1,1,1); prevNameLbl.Font=Enum.Font.GothamBold; prevNameLbl.TextSize=esp.textSize; prevNameLbl.TextStrokeTransparency=0.35; prevNameLbl.TextStrokeColor3=Color3.new(0,0,0); prevNameLbl.TextXAlignment=Enum.TextXAlignment.Center; prevNameLbl.ZIndex=5; prevNameLbl.Parent=prevScene
-        -- Distance label below
-        local prevDistLbl=Instance.new("TextLabel"); prevDistLbl.Size=UDim2.new(1,-8,0,13); prevDistLbl.Position=UDim2.new(0.5,0,0,22); prevDistLbl.AnchorPoint=Vector2.new(0.5,0); prevDistLbl.BackgroundTransparency=1; prevDistLbl.Text="142m"; prevDistLbl.TextColor3=Color3.fromRGB(180,220,255); prevDistLbl.Font=Enum.Font.GothamMedium; prevDistLbl.TextSize=11; prevDistLbl.TextStrokeTransparency=0.4; prevDistLbl.TextStrokeColor3=Color3.new(0,0,0); prevDistLbl.TextXAlignment=Enum.TextXAlignment.Center; prevDistLbl.ZIndex=5; prevDistLbl.Parent=prevScene
+        -- Dark foggy game scene
+        local prevScene=Instance.new("Frame"); prevScene.Size=UDim2.new(1,-16,0,120); prevScene.Position=UDim2.new(0,8,0,27); prevScene.BackgroundColor3=Color3.fromRGB(8,12,9); prevScene.BorderSizePixel=0; prevScene.ClipsDescendants=true; prevScene.Parent=prevCard; Instance.new("UICorner",prevScene).CornerRadius=UDim.new(0,5)
+        -- Distant trees / foliage silhouette strips
+        for i,cfg in ipairs({{Color3.fromRGB(10,18,11),UDim2.new(1,0,0.45,0),UDim2.new(0,0,0.5,0)},{Color3.fromRGB(7,13,8),UDim2.new(1,0,0.3,0),UDim2.new(0,0,0.7,0)}}) do
+            local bg2=Instance.new("Frame"); bg2.Size=cfg[2]; bg2.Position=cfg[3]; bg2.BackgroundColor3=cfg[1]; bg2.BorderSizePixel=0; bg2.ZIndex=1; bg2.Parent=prevScene
+        end
+        -- Ground
+        local prevGround=Instance.new("Frame"); prevGround.Size=UDim2.new(1,0,0.22,0); prevGround.Position=UDim2.new(0,0,0.78,0); prevGround.BackgroundColor3=Color3.fromRGB(12,19,13); prevGround.BorderSizePixel=0; prevGround.ZIndex=2; prevGround.Parent=prevScene
 
-        -- Load a random player avatar into preview
+        -- Layered glow aura (outermost, most transparent)
+        local glowAura3=Instance.new("Frame"); glowAura3.Size=UDim2.new(0,58,0,86); glowAura3.Position=UDim2.new(0.5,0,0.5,-4); glowAura3.AnchorPoint=Vector2.new(0.5,0.5); glowAura3.BackgroundColor3=esp.glowColor; glowAura3.BackgroundTransparency=0.88; glowAura3.BorderSizePixel=0; glowAura3.ZIndex=3; glowAura3.Parent=prevScene; Instance.new("UICorner",glowAura3).CornerRadius=UDim.new(0,7)
+        local glowAura2=Instance.new("Frame"); glowAura2.Size=UDim2.new(0,52,0,82); glowAura2.Position=UDim2.new(0.5,0,0.5,-4); glowAura2.AnchorPoint=Vector2.new(0.5,0.5); glowAura2.BackgroundColor3=esp.glowColor; glowAura2.BackgroundTransparency=0.78; glowAura2.BorderSizePixel=0; glowAura2.ZIndex=4; glowAura2.Parent=prevScene; Instance.new("UICorner",glowAura2).CornerRadius=UDim.new(0,6)
+        -- Inner fill (like Highlight FillTransparency ~0.55)
+        local prevHl=Instance.new("Frame"); prevHl.Size=UDim2.new(0,44,0,76); prevHl.Position=UDim2.new(0.5,0,0.5,-4); prevHl.AnchorPoint=Vector2.new(0.5,0.5); prevHl.BackgroundColor3=esp.glowColor; prevHl.BackgroundTransparency=0.55; prevHl.BorderSizePixel=0; prevHl.ZIndex=5; prevHl.Parent=prevScene; Instance.new("UICorner",prevHl).CornerRadius=UDim.new(0,5)
+        -- Crisp outline (like Highlight OutlineTransparency ~0.05)
+        local prevHlStroke=Instance.new("UIStroke"); prevHlStroke.Color=esp.glowColor; prevHlStroke.Thickness=2.5; prevHlStroke.Transparency=0.05; prevHlStroke.Parent=prevHl
+        -- Avatar (body crop inside the highlight)
+        local prevAv=Instance.new("ImageLabel"); prevAv.Size=UDim2.new(1,-2,1,-2); prevAv.Position=UDim2.new(0,1,0,1); prevAv.BackgroundTransparency=1; prevAv.ScaleType=Enum.ScaleType.Crop; prevAv.ZIndex=6; prevAv.ImageTransparency=0.15; prevAv.Parent=prevHl; Instance.new("UICorner",prevAv).CornerRadius=UDim.new(0,4)
+
+        -- Pulsing glow animation on auras
+        S.Tween:Create(glowAura3,TweenInfo.new(1.4,Enum.EasingStyle.Sine,Enum.EasingDirection.InOut,-1,true),{BackgroundTransparency=0.94}):Play()
+        S.Tween:Create(glowAura2,TweenInfo.new(1.4,Enum.EasingStyle.Sine,Enum.EasingDirection.InOut,-1,true),{BackgroundTransparency=0.84}):Play()
+
+        -- Name label (above player, with text stroke like real BillboardGui)
+        local prevNameLbl=Instance.new("TextLabel"); prevNameLbl.Size=UDim2.new(1,-10,0,14); prevNameLbl.Position=UDim2.new(0.5,0,0,6); prevNameLbl.AnchorPoint=Vector2.new(0.5,0); prevNameLbl.BackgroundTransparency=1; prevNameLbl.Text="PlayerName"; prevNameLbl.TextColor3=Color3.new(1,1,1); prevNameLbl.Font=Enum.Font.GothamBold; prevNameLbl.TextSize=11; prevNameLbl.TextStrokeTransparency=0.1; prevNameLbl.TextStrokeColor3=Color3.new(0,0,0); prevNameLbl.TextXAlignment=Enum.TextXAlignment.Center; prevNameLbl.ZIndex=8; prevNameLbl.Parent=prevScene; prevNameLbl.TextTruncate=Enum.TextTruncate.AtEnd
+        -- Distance label
+        local prevDistLbl=Instance.new("TextLabel"); prevDistLbl.Size=UDim2.new(1,-10,0,11); prevDistLbl.Position=UDim2.new(0.5,0,0,20); prevDistLbl.AnchorPoint=Vector2.new(0.5,0); prevDistLbl.BackgroundTransparency=1; prevDistLbl.Text="142m"; prevDistLbl.TextColor3=Color3.fromRGB(180,220,255); prevDistLbl.Font=Enum.Font.GothamMedium; prevDistLbl.TextSize=10; prevDistLbl.TextStrokeTransparency=0.2; prevDistLbl.TextStrokeColor3=Color3.new(0,0,0); prevDistLbl.TextXAlignment=Enum.TextXAlignment.Center; prevDistLbl.ZIndex=8; prevDistLbl.Parent=prevScene
+
+        -- Load a random other player's avatar
         task.spawn(function()
             local others={}; for _,p in ipairs(S.Players:GetPlayers()) do if p~=player then table.insert(others,p) end end
             local target=#others>0 and others[math.random(1,#others)] or player
             local ok2,img=pcall(function() return S.Players:GetUserThumbnailAsync(target.UserId,Enum.ThumbnailType.AvatarBust,Enum.ThumbnailSize.Size100x100) end)
             if ok2 then prevAv.Image=img end
-            prevNameLbl.Text=target.DisplayName.." (@"..target.Name..")"
+            -- Truncate name to fit
+            local nm=target.DisplayName; prevNameLbl.Text=nm.." (@"..target.Name..")"
         end)
 
         local function updGlow()
             local c=Color3.fromHSV(gH,gS,gV); esp.glowColor=c; glSw.BackgroundColor3=c; sv("esp_cH",gH); sv("esp_cS",gS); sv("esp_cV",gV)
-            prevHl.BackgroundColor3=c; prevHlStroke.Color=c
+            prevHl.BackgroundColor3=c; prevHlStroke.Color=c; glowAura2.BackgroundColor3=c; glowAura3.BackgroundColor3=c
             for _,d in pairs(espData) do if d.hl then d.hl.FillColor=c; d.hl.OutlineColor=c end end
         end
         gH=ld("esp_cH",gH); gS=ld("esp_cS",gS); gV=ld("esp_cV",gV); updGlow()
@@ -770,16 +798,36 @@ local function LoadNaxiumHub()
             end
         end)
         mkSlider(THT_L,"Image Opacity",62,"bg_op",0,1,0.3,"%.2f",function(v) UI.bgImg.ImageTransparency=1-v end)
-        -- Custom ID input
-        local customImgBox=Instance.new("TextBox"); customImgBox.Size=UDim2.new(1,-60,0,26); customImgBox.Position=UDim2.new(0,10,0,108); customImgBox.BackgroundColor3=Color3.fromRGB(12,16,24); customImgBox.BackgroundTransparency=0.2; customImgBox.BorderSizePixel=0; customImgBox.PlaceholderText="Paste Image ID here..."; customImgBox.Text=""; customImgBox.Font=Enum.Font.GothamMedium; customImgBox.TextSize=10; customImgBox.TextColor3=C.White; customImgBox.PlaceholderColor3=C.Gray; customImgBox.ClearTextOnFocus=false; customImgBox.Parent=THT_L; Instance.new("UICorner",customImgBox).CornerRadius=UDim.new(0,5)
+        -- Custom ID input (narrower to leave room for Save + ?)
+        local customImgBox=Instance.new("TextBox"); customImgBox.Size=UDim2.new(1,-76,0,26); customImgBox.Position=UDim2.new(0,10,0,108); customImgBox.BackgroundColor3=Color3.fromRGB(12,16,24); customImgBox.BackgroundTransparency=0.2; customImgBox.BorderSizePixel=0; customImgBox.PlaceholderText="Paste Image ID here..."; customImgBox.Text=""; customImgBox.Font=Enum.Font.GothamMedium; customImgBox.TextSize=10; customImgBox.TextColor3=C.White; customImgBox.PlaceholderColor3=C.Gray; customImgBox.ClearTextOnFocus=false; customImgBox.Parent=THT_L; Instance.new("UICorner",customImgBox).CornerRadius=UDim.new(0,5)
         local cpad2=Instance.new("UIPadding"); cpad2.PaddingLeft=UDim.new(0,8); cpad2.Parent=customImgBox; local cboxStr=Instance.new("UIStroke"); cboxStr.Thickness=1; cboxStr.Transparency=0.7; cboxStr.Parent=customImgBox; track(cboxStr,"Color","Accent")
-        local helpBtn=Instance.new("TextButton"); helpBtn.Size=UDim2.new(0,20,0,20); helpBtn.Position=UDim2.new(1,-25,0,112); helpBtn.BackgroundTransparency=1; helpBtn.Text="?"; helpBtn.Font=Enum.Font.GothamBold; helpBtn.TextSize=13; helpBtn.TextColor3=C.Accent; helpBtn.ZIndex=51; helpBtn.Parent=THT_L
-        local helpPopup=Instance.new("Frame"); helpPopup.Size=UDim2.new(0,230,0,52); helpPopup.Position=UDim2.new(0,10,0,138); helpPopup.BackgroundColor3=C.DkBg; helpPopup.BorderSizePixel=0; helpPopup.Visible=false; helpPopup.ZIndex=100; helpPopup.Parent=THT_L; Instance.new("UICorner",helpPopup).CornerRadius=UDim.new(0,6); local helpStr=Instance.new("UIStroke"); helpStr.Thickness=1.5; helpStr.ZIndex=100; helpStr.Parent=helpPopup; track(helpStr,"Color","Accent")
-        local helpTxt=Instance.new("TextLabel"); helpTxt.Size=UDim2.new(1,-12,1,-8); helpTxt.Position=UDim2.new(0,6,0,4); helpTxt.BackgroundTransparency=1; helpTxt.Text="Must be an IMAGE ID, not a Decal ID.\nUse BTRoblox to find the correct ID."; helpTxt.Font=Enum.Font.GothamMedium; helpTxt.TextSize=10; helpTxt.TextColor3=C.White; helpTxt.TextWrapped=true; helpTxt.ZIndex=101; helpTxt.Parent=helpPopup
-        helpBtn.MouseEnter:Connect(function() helpPopup.Visible=true; helpBtn.TextColor3=C.White end); helpBtn.MouseLeave:Connect(function() helpPopup.Visible=false; helpBtn.TextColor3=C.Accent end)
-        -- Save image button
-        local saveImgBtn=Instance.new("TextButton"); saveImgBtn.Size=UDim2.new(0,40,0,26); saveImgBtn.Position=UDim2.new(1,-50,0,108); saveImgBtn.BackgroundColor3=C.Accent; saveImgBtn.BackgroundTransparency=0.25; saveImgBtn.BorderSizePixel=0; saveImgBtn.Text="Save"; saveImgBtn.Font=Enum.Font.GothamBold; saveImgBtn.TextSize=10; saveImgBtn.TextColor3=Color3.new(1,1,1); saveImgBtn.Parent=THT_L; Instance.new("UICorner",saveImgBtn).CornerRadius=UDim.new(0,5); track(saveImgBtn,"BackgroundColor3","Accent")
+        -- Save image button (right of input, left of ?)
+        local saveImgBtn=Instance.new("TextButton"); saveImgBtn.Size=UDim2.new(0,36,0,26); saveImgBtn.Position=UDim2.new(1,-62,0,108); saveImgBtn.BackgroundColor3=C.Accent; saveImgBtn.BackgroundTransparency=0.25; saveImgBtn.BorderSizePixel=0; saveImgBtn.Text="Save"; saveImgBtn.Font=Enum.Font.GothamBold; saveImgBtn.TextSize=10; saveImgBtn.TextColor3=Color3.new(1,1,1); saveImgBtn.Parent=THT_L; Instance.new("UICorner",saveImgBtn).CornerRadius=UDim.new(0,5); track(saveImgBtn,"BackgroundColor3","Accent")
         saveImgBtn.MouseEnter:Connect(function() S.Tween:Create(saveImgBtn,TweenInfo.new(0.1),{BackgroundTransparency=0}):Play() end); saveImgBtn.MouseLeave:Connect(function() S.Tween:Create(saveImgBtn,TweenInfo.new(0.1),{BackgroundTransparency=0.25}):Play() end)
+        -- ? help button (rightmost, no overlap)
+        local helpBtn=Instance.new("TextButton"); helpBtn.Size=UDim2.new(0,20,0,26); helpBtn.Position=UDim2.new(1,-22,0,108); helpBtn.BackgroundTransparency=1; helpBtn.Text="?"; helpBtn.Font=Enum.Font.GothamBold; helpBtn.TextSize=12; helpBtn.TextColor3=C.Accent; helpBtn.ZIndex=51; helpBtn.Parent=THT_L
+        -- Floating tooltip that follows mouse and appears ABOVE cursor
+        local helpPopup=Instance.new("Frame"); helpPopup.Size=UDim2.new(0,260,0,72); helpPopup.BackgroundColor3=C.DkBg; helpPopup.BorderSizePixel=0; helpPopup.Visible=false; helpPopup.ZIndex=200; helpPopup.Parent=UI.gui; Instance.new("UICorner",helpPopup).CornerRadius=UDim.new(0,7); local helpStr=Instance.new("UIStroke"); helpStr.Thickness=1.5; helpStr.ZIndex=200; helpStr.Parent=helpPopup; track(helpStr,"Color","Accent")
+        local helpTxt=Instance.new("TextLabel"); helpTxt.Size=UDim2.new(1,-14,1,-10); helpTxt.Position=UDim2.new(0,7,0,5); helpTxt.BackgroundTransparency=1; helpTxt.RichText=true
+        helpTxt.Text="<b>Image ID vs Decal ID</b>\nRoblox images have two different IDs. You need the <b>Image ID</b>, not the Decal ID shown in the URL.\n<font color=\"#7fa8d4\">Tip: Install BTRoblox to find Image IDs easily.</font>"
+        helpTxt.Font=Enum.Font.GothamMedium; helpTxt.TextSize=10; helpTxt.TextColor3=C.White; helpTxt.TextWrapped=true; helpTxt.ZIndex=201; helpTxt.TextXAlignment=Enum.TextXAlignment.Left; helpTxt.TextYAlignment=Enum.TextYAlignment.Top; helpTxt.Parent=helpPopup
+        -- Track mouse to position tooltip above cursor
+        local helpMoveConn
+        helpBtn.MouseEnter:Connect(function()
+            helpPopup.Visible=true; helpBtn.TextColor3=C.White
+            helpMoveConn=S.UIS.InputChanged:Connect(function(i)
+                if i.UserInputType==Enum.UserInputType.MouseMovement then
+                    helpPopup.Position=UDim2.new(0,i.Position.X+10,0,i.Position.Y-helpPopup.AbsoluteSize.Y-12)
+                end
+            end)
+            -- Set initial position above current mouse
+            local mp=S.UIS:GetMouseLocation()
+            helpPopup.Position=UDim2.new(0,mp.X+10,0,mp.Y-helpPopup.AbsoluteSize.Y-12)
+        end)
+        helpBtn.MouseLeave:Connect(function()
+            helpPopup.Visible=false; helpBtn.TextColor3=C.Accent
+            if helpMoveConn then helpMoveConn:Disconnect(); helpMoveConn=nil end
+        end)
         -- Saved images list
         mkDiv(THT_L,142,1); L("SAVED",THT_L,UDim2.new(1,-14,0,11),UDim2.new(0,10,0,147),"Accent",Enum.TextXAlignment.Left,Enum.Font.GothamBold,9)
         local savedImgScroll=Instance.new("ScrollingFrame"); savedImgScroll.Size=UDim2.new(1,-14,0,28); savedImgScroll.Position=UDim2.new(0,7,0,160); savedImgScroll.BackgroundTransparency=1; savedImgScroll.BorderSizePixel=0; savedImgScroll.ScrollBarThickness=2; savedImgScroll.ScrollBarImageColor3=C.Accent; savedImgScroll.CanvasSize=UDim2.new(0,0,0,0); savedImgScroll.AutomaticCanvasSize=Enum.AutomaticSize.X; savedImgScroll.ScrollingDirection=Enum.ScrollingDirection.X; savedImgScroll.ClipsDescendants=true; savedImgScroll.Parent=THT_L
@@ -889,7 +937,7 @@ local function LoadNaxiumHub()
             return btn, L("",btn,UDim2.new(0,0,1,0),UDim2.new(0,0,0,0),"Gray",Enum.TextXAlignment.Left,Enum.Font.Gotham,0) -- invisible status label
         end
 
-        local cfgShareBtn,_ = makeActionBtn(cfgCreateCard,136,"Share Config","Copies your current settings to clipboard — send to a friend",C.Accent)
+        local cfgShareBtn,_ = makeActionBtn(cfgCreateCard,136,"Export to Clipboard","Copies all current settings as a shareable string",C.Accent)
         cfgShareBtn.MouseButton1Click:Connect(function()
             local json=encodeData(State.saveData); pcall(function() setclipboard(json) end)
             local lbl=cfgShareBtn:FindFirstChildOfClass("TextLabel"); if lbl then lbl.Text="Share Config" end
@@ -897,7 +945,7 @@ local function LoadNaxiumHub()
             local tl=cfgShareBtn:GetChildren()[2]; if tl and tl:IsA("TextLabel") then local orig=tl.Text; tl.Text="Copied to clipboard!"; tl.TextColor3=C.Green; task.delay(2,function() tl.Text=orig; tl.TextColor3=C.Gray end) end
         end)
 
-        local cfgReceiveBtn,_ = makeActionBtn(cfgCreateCard,178,"Load Shared Config","Paste a config string from clipboard to load someone else's settings",C.Green,C.Green)
+        local cfgReceiveBtn,_ = makeActionBtn(cfgCreateCard,178,"Import from Clipboard","Paste a config string to apply its settings",C.Green,C.Green)
         cfgReceiveBtn.MouseButton1Click:Connect(function()
             local clip=""; pcall(function() clip=getclipboard() end)
             if clip=="" then
@@ -1148,7 +1196,7 @@ local function LoadNaxiumHub()
         local statusTxts={"Authenticating...","Loading configurations...","Connecting to servers...","Ready."}
         local stLbl=Instance.new("TextLabel"); stLbl.Size=UDim2.new(1,-20,0,14); stLbl.Position=UDim2.new(0,10,0,152); stLbl.BackgroundTransparency=1; stLbl.Text=statusTxts[1]; stLbl.TextColor3=Color3.fromRGB(85,160,215); stLbl.Font=Enum.Font.GothamMedium; stLbl.TextSize=10; stLbl.TextXAlignment=Enum.TextXAlignment.Center; stLbl.Parent=sf
         local st2=Instance.new("TextLabel"); st2.Size=UDim2.new(1,0,0,28); st2.Position=UDim2.new(0,0,0,170); st2.BackgroundTransparency=1; st2.Text="NAXIUM HUB"; st2.Font=Enum.Font.GothamBold; st2.TextSize=20; st2.Parent=sf; local tg3=Instance.new("UIGradient"); tg3.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(115,122,135)),ColorSequenceKeypoint.new(0.5,Color3.fromRGB(255,255,255)),ColorSequenceKeypoint.new(1,Color3.fromRGB(115,122,135))}); tg3.Rotation=90; tg3.Parent=st2
-        L("v1.5.0  |  Creatures of Sonaria",sf,UDim2.new(1,-20,0,12),UDim2.new(0,10,0,200),Color3.fromRGB(60,70,90),Enum.TextXAlignment.Center,Enum.Font.GothamMedium,8)
+        L("v1.6.0  |  Creatures of Sonaria",sf,UDim2.new(1,-20,0,12),UDim2.new(0,10,0,200),Color3.fromRGB(60,70,90),Enum.TextXAlignment.Center,Enum.Font.GothamMedium,8)
         local pbBg=Instance.new("Frame"); pbBg.Size=UDim2.new(1,-40,0,2); pbBg.Position=UDim2.new(0,20,0,220); pbBg.BackgroundColor3=Color3.fromRGB(22,30,44); pbBg.BorderSizePixel=0; pbBg.Parent=sf; Instance.new("UICorner",pbBg).CornerRadius=UDim.new(1,0)
         local pbFill=Instance.new("Frame"); pbFill.Size=UDim2.new(0,0,1,0); pbFill.BackgroundColor3=Color3.fromRGB(85,160,215); pbFill.BorderSizePixel=0; pbFill.Parent=pbBg; Instance.new("UICorner",pbFill).CornerRadius=UDim.new(1,0)
         task.spawn(function() for i3,txt in ipairs(statusTxts) do stLbl.Text=txt; S.Tween:Create(pbFill,TweenInfo.new(1.0,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),{Size=UDim2.new(i3/#statusTxts,0,1,0)}):Play(); task.wait(1.1) end end)
@@ -1156,7 +1204,14 @@ local function LoadNaxiumHub()
             if not UI.gui:FindFirstChild("Main") then return end; if not sf.Parent then return end
             S.Tween:Create(sf,TweenInfo.new(0.55,Enum.EasingStyle.Sine),{BackgroundTransparency=1}):Play(); S.Tween:Create(pbBg,TweenInfo.new(0.55),{BackgroundTransparency=1}):Play(); S.Tween:Create(pbFill,TweenInfo.new(0.55),{BackgroundTransparency=1}):Play()
             for _,ch in ipairs(sf:GetDescendants()) do if ch:IsA("TextLabel") or ch:IsA("ImageLabel") or ch:IsA("UIStroke") then pcall(function() S.Tween:Create(ch,TweenInfo.new(0.55),{Transparency=1}):Play() end); pcall(function() S.Tween:Create(ch,TweenInfo.new(0.55),{TextTransparency=1}):Play() end); pcall(function() S.Tween:Create(ch,TweenInfo.new(0.55),{ImageTransparency=1}):Play() end) end end
-            task.delay(0.6,function() if sf.Parent then sf:Destroy(); UI.mf.Visible=true end end)
+            task.delay(0.6,function()
+                if sf.Parent then sf:Destroy(); UI.mf.Visible=true end
+                -- Play startup sound
+                pcall(function()
+                    local snd=Instance.new("Sound"); snd.SoundId="rbxassetid://6599575767"; snd.Volume=0.75; snd.Parent=S.Sound; snd:Play()
+                    task.delay(6,function() pcall(function() snd:Destroy() end) end)
+                end)
+            end)
         end
         si.MouseButton1Click:Connect(openMenu); task.delay(5,openMenu)
     end
@@ -1176,7 +1231,7 @@ local function LoadNaxiumHub()
         end) end
     end)
 
-    print("NaxiumHub v1.5.0 loaded!")
+    print("NaxiumHub v1.6.0 loaded!")
 
     end) -- end pcall
     if not ok then
